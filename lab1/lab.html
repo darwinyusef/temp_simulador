@@ -1,0 +1,1163 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Clínica San Rafael — Simulador de Redes</title>
+<style>
+  :root {
+    --bg: #0f1117;
+    --panel: #161b27;
+    --card: #1e2535;
+    --border: #2a3347;
+    --accent: #3b82f6;
+    --accent2: #10b981;
+    --warn: #f59e0b;
+    --danger: #ef4444;
+    --text: #e2e8f0;
+    --muted: #64748b;
+    --vlan10: #3b82f6;
+    --vlan20: #10b981;
+    --vlan30: #f59e0b;
+    --vlan40: #a78bfa;
+    --vlan50: #f472b6;
+    --vlan60: #fb923c;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--text); font-family: 'Segoe UI', system-ui, sans-serif; height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
+
+  /* HEADER */
+  header { background: var(--panel); border-bottom: 1px solid var(--border); padding: 10px 20px; display: flex; align-items: center; gap: 16px; flex-shrink: 0; }
+  .logo { font-size: 18px; font-weight: 700; color: var(--accent); }
+  .subtitle { font-size: 12px; color: var(--muted); }
+  .steps-nav { display: flex; gap: 6px; margin-left: auto; }
+  .step-btn { padding: 5px 14px; border-radius: 20px; border: 1px solid var(--border); background: transparent; color: var(--muted); font-size: 12px; cursor: pointer; transition: all .2s; }
+  .step-btn.active { background: var(--accent); color: #fff; border-color: var(--accent); }
+  .step-btn.done { background: var(--accent2); color: #fff; border-color: var(--accent2); }
+  .step-btn:hover:not(.active) { border-color: var(--accent); color: var(--accent); }
+
+  /* MAIN LAYOUT */
+  .main { display: flex; flex: 1; overflow: hidden; }
+
+  /* LEFT PANEL */
+  .panel { width: 200px; background: var(--panel); border-right: 1px solid var(--border); display: flex; flex-direction: column; flex-shrink: 0; overflow-y: auto; padding: 12px; gap: 8px; }
+  .panel-title { font-size: 10px; text-transform: uppercase; letter-spacing: 1px; color: var(--muted); padding: 4px 0; border-bottom: 1px solid var(--border); margin-bottom: 4px; }
+  .device-item { background: var(--card); border: 1px solid var(--border); border-radius: 8px; padding: 8px 10px; cursor: grab; display: flex; align-items: center; gap: 8px; font-size: 12px; transition: all .15s; user-select: none; }
+  .device-item:hover { border-color: var(--accent); background: #253047; }
+  .device-item:active { cursor: grabbing; }
+  .device-icon { font-size: 20px; width: 30px; text-align: center; display:flex; align-items:center; justify-content:center; }
+  .device-icon img { width:28px; height:28px; object-fit:contain; filter:drop-shadow(0 1px 2px rgba(0,0,0,.4)); }
+
+  /* VLAN BADGES */
+  .vlan-badges { display: flex; flex-direction: column; gap: 4px; }
+  .vlan-badge { border-radius: 6px; padding: 5px 8px; font-size: 11px; font-weight: 600; display: flex; align-items: center; gap: 6px; cursor: grab; user-select: none; }
+  .vlan-badge:active { cursor: grabbing; }
+
+  /* CANVAS AREA */
+  .canvas-wrap { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+  .step-info { background: var(--card); border-bottom: 1px solid var(--border); padding: 10px 20px; display: flex; align-items: center; gap: 12px; flex-shrink: 0; }
+  .step-title { font-weight: 700; font-size: 14px; color: var(--accent); }
+  .step-desc { font-size: 12px; color: var(--muted); flex: 1; }
+  .btn { padding: 6px 14px; border-radius: 6px; border: none; cursor: pointer; font-size: 12px; font-weight: 600; transition: all .15s; }
+  .btn-primary { background: var(--accent); color: #fff; }
+  .btn-primary:hover { background: #2563eb; }
+  .btn-danger { background: var(--danger); color: #fff; }
+  .btn-success { background: var(--accent2); color: #fff; }
+
+  #canvas { flex: 1; position: relative; overflow: hidden; background: var(--bg); background-image: radial-gradient(circle, #2a3347 1px, transparent 1px); background-size: 28px 28px; }
+
+  /* NODES */
+  .node { position: absolute; display: flex; flex-direction: column; align-items: center; gap: 4px; cursor: grab; user-select: none; z-index: 10; }
+  .node:active { cursor: grabbing; }
+  .node-box { background: var(--card); border: 2px solid var(--border); border-radius: 10px; padding: 10px 12px; display: flex; flex-direction: column; align-items: center; gap: 4px; min-width: 72px; transition: border-color .2s, box-shadow .2s; }
+  .node-box:hover { border-color: var(--accent); box-shadow: 0 0 14px rgba(59,130,246,.3); }
+  .node-box.selected { border-color: var(--accent); box-shadow: 0 0 20px rgba(59,130,246,.5); }
+  .node-icon { font-size: 28px; display:flex; align-items:center; justify-content:center; }
+  .node-icon img { width:44px; height:44px; object-fit:contain; filter:drop-shadow(0 1px 3px rgba(0,0,0,.5)); }
+  .node-label { font-size: 10px; font-weight: 600; text-align: center; color: var(--text); max-width: 80px; }
+  .node-vlan { font-size: 9px; padding: 1px 5px; border-radius: 10px; font-weight: 700; color: #fff; margin-top: 2px; }
+  .node-delete { position: absolute; top: -8px; right: -8px; background: var(--danger); color: #fff; border: none; border-radius: 50%; width: 18px; height: 18px; font-size: 10px; cursor: pointer; display: none; align-items: center; justify-content: center; z-index: 20; }
+  .node:hover .node-delete { display: flex; }
+
+  /* SVG LINES */
+  #svg-layer { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 5; }
+  .link-line { stroke: var(--border); stroke-width: 2; fill: none; }
+  .link-line.trunk { stroke: var(--accent); stroke-width: 3; stroke-dasharray: 8,4; }
+  .link-line.active { stroke: var(--accent2); stroke-width: 2.5; }
+  .link-delete { cursor: pointer; stroke: transparent; stroke-width: 12; fill: none; }
+
+  /* CONNECT MODE */
+  .connecting-line { stroke: var(--warn); stroke-width: 2; stroke-dasharray: 6,3; pointer-events: none; }
+  #canvas.connecting { cursor: crosshair; }
+  #canvas.connecting .node { cursor: crosshair; }
+
+  /* DROP ZONES */
+  .drop-zone { position: absolute; border: 2px dashed var(--border); border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 11px; color: var(--muted); transition: all .2s; pointer-events: none; }
+  .drop-zone.active { border-color: var(--accent); color: var(--accent); background: rgba(59,130,246,.05); }
+
+  /* RIGHT PANEL */
+  .right-panel { width: 220px; background: var(--panel); border-left: 1px solid var(--border); display: flex; flex-direction: column; flex-shrink: 0; overflow-y: auto; }
+  .rp-section { padding: 12px; border-bottom: 1px solid var(--border); }
+  .rp-title { font-size: 10px; text-transform: uppercase; letter-spacing: 1px; color: var(--muted); margin-bottom: 8px; }
+  .rp-row { display: flex; align-items: center; justify-content: space-between; padding: 4px 0; font-size: 11px; border-bottom: 1px solid var(--border); }
+  .rp-row:last-child { border: none; }
+  .status-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+  .dot-ok { background: var(--accent2); }
+  .dot-err { background: var(--danger); }
+  .dot-warn { background: var(--warn); }
+  .dot-off { background: var(--muted); }
+
+  /* TOOLBAR */
+  .toolbar { display: flex; gap: 6px; padding: 8px 20px; background: var(--panel); border-bottom: 1px solid var(--border); flex-shrink: 0; align-items: center; }
+  .tool-btn { padding: 5px 10px; border-radius: 5px; border: 1px solid var(--border); background: var(--card); color: var(--text); font-size: 11px; cursor: pointer; display: flex; align-items: center; gap: 5px; transition: all .15s; }
+  .tool-btn:hover { border-color: var(--accent); color: var(--accent); }
+  .tool-btn.active { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .tool-sep { width: 1px; height: 20px; background: var(--border); margin: 0 4px; }
+
+  /* PING MODAL */
+  .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,.7); display: flex; align-items: center; justify-content: center; z-index: 100; display: none; }
+  .modal-overlay.show { display: flex; }
+  .modal { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 20px; width: 440px; max-height: 80vh; overflow-y: auto; }
+  .modal h3 { font-size: 14px; margin-bottom: 12px; color: var(--accent); }
+  .ping-result { font-family: monospace; font-size: 11px; background: var(--bg); border-radius: 6px; padding: 10px; margin-top: 8px; max-height: 200px; overflow-y: auto; }
+  .ping-ok { color: var(--accent2); }
+  .ping-err { color: var(--danger); }
+  .ping-info { color: var(--warn); }
+
+  /* PROGRESS BAR */
+  .progress-bar { height: 3px; background: var(--border); flex-shrink: 0; }
+  .progress-fill { height: 100%; background: linear-gradient(90deg, var(--accent), var(--accent2)); transition: width .4s; }
+
+  /* SUCCESS TOAST */
+  .toast { position: fixed; bottom: 20px; right: 20px; background: var(--accent2); color: #fff; padding: 12px 20px; border-radius: 8px; font-size: 13px; font-weight: 600; z-index: 200; transform: translateY(60px); opacity: 0; transition: all .3s; }
+  .toast.show { transform: translateY(0); opacity: 1; }
+
+  /* STEP4 CLI — MODAL */
+  .cli-btn { display:none; align-items:center; gap:6px; background:rgba(16,185,129,.12); border:1px solid var(--accent2); color:var(--accent2); padding:5px 12px; border-radius:6px; cursor:pointer; font-size:11px; font-weight:700; transition:all .2s; margin-left:8px; }
+  .cli-btn.visible { display:flex; }
+  .cli-btn:hover { background:rgba(16,185,129,.22); }
+  .cli-btn.active { background:var(--accent2); color:#fff; }
+  .cli-btn-badge { background:rgba(16,185,129,.2); border-radius:4px; padding:1px 5px; font-size:10px; }
+  .cli-btn.active .cli-btn-badge { background:rgba(0,0,0,.2); }
+  @keyframes cliBtnPulse { 0%,100%{box-shadow:0 0 0 0 rgba(16,185,129,0)} 60%{box-shadow:0 0 0 7px rgba(16,185,129,.35)} }
+  .cli-btn.pulse { animation:cliBtnPulse 1.6s ease-in-out infinite; }
+  .cli-overlay { position:fixed; inset:0; background:rgba(0,0,0,.6); z-index:300; opacity:0; pointer-events:none; transition:opacity .2s; display:flex; align-items:center; justify-content:center; }
+  .cli-overlay.open { opacity:1; pointer-events:all; }
+  .cli-modal { background:#0d1117; border:1px solid #2a3347; border-radius:12px; width:700px; max-width:94vw; max-height:85vh; box-shadow:0 32px 80px rgba(0,0,0,.8); transform:scale(.96) translateY(12px); transition:transform .28s cubic-bezier(.34,1.56,.64,1); overflow:hidden; display:flex; flex-direction:column; }
+  .cli-overlay.open .cli-modal { transform:scale(1) translateY(0); }
+  .cli-titlebar { background:#161b27; border-bottom:1px solid #1e2535; padding:9px 14px; display:flex; align-items:center; gap:10px; }
+  .cli-titlebar-dots { display:flex; gap:5px; }
+  .cli-titlebar-dot { width:10px; height:10px; border-radius:50%; cursor:pointer; }
+  .cli-titlebar-close { margin-left:auto; background:none; border:none; color:#64748b; cursor:pointer; font-size:14px; line-height:1; padding:0 2px; }
+  .cli-titlebar-close:hover { color:#e2e8f0; }
+  .cli-out { font-family:'Courier New',monospace; font-size:12px; color:#0f0; padding:10px 12px; height:340px; flex:1; overflow-y:auto; line-height:1.6; }
+  .cli-input-row { display:flex; align-items:center; padding:7px 12px; border-top:1px solid #1a1a1a; gap:8px; }
+  .cli-prompt-lbl { font-family:monospace; font-size:12px; color:#10b981; white-space:nowrap; }
+  .cli-field { flex:1; background:transparent; border:none; color:#fff; font-family:'Courier New',monospace; font-size:12px; outline:none; }
+
+  /* VALIDATION CHECKLIST */
+  .check-list { display: flex; flex-direction: column; gap: 5px; }
+  .check-item { display: flex; align-items: center; gap: 8px; font-size: 11px; padding: 5px 8px; border-radius: 6px; background: var(--bg); }
+  .check-item.ok { color: var(--accent2); }
+  .check-item.err { color: var(--muted); }
+  .check-item.ok::before { content: '✓'; font-weight: 700; color: var(--accent2); }
+  .check-item.err::before { content: '○'; color: var(--muted); }
+
+  scrollbar-width: thin;
+  scrollbar-color: var(--border) transparent;
+
+  /* CLI CANVAS BANNER */
+  #canvasBanner { position: absolute; bottom: 14px; left: 50%; transform: translateX(-50%) scale(.88); background: var(--accent2); color: #fff; padding: 6px 16px; border-radius: 8px; font-family: monospace; font-size: 11px; font-weight: 700; z-index: 50; opacity: 0; transition: opacity .22s, transform .22s; pointer-events: none; white-space: nowrap; box-shadow: 0 4px 20px rgba(0,0,0,.4); }
+  #canvasBanner.show { opacity: 1; transform: translateX(-50%) scale(1); }
+
+  /* NODE PULSE */
+  @keyframes nodePulseAnim { 0%{transform:scale(1)} 35%{transform:scale(1.18)} 70%{transform:scale(.97)} 100%{transform:scale(1)} }
+  .node-pulse .node-box { animation: nodePulseAnim .55s ease; }
+
+  /* SWITCH FLASH */
+  @keyframes switchFlashAnim { 0%{filter:brightness(1)} 40%{filter:brightness(1.8) drop-shadow(0 0 10px #10b981)} 100%{filter:brightness(1)} }
+  .switch-flash .node-box { animation: switchFlashAnim .5s ease; }
+
+  /* LINK PULSE (via JS inline) */
+  @keyframes linkGlow { 0%{opacity:1} 50%{opacity:.3} 100%{opacity:1} }
+
+  /* COMPLETION OVERLAY */
+  .comp-overlay { position: fixed; inset: 0; background: rgba(0,0,0,.86); display: flex; align-items: center; justify-content: center; z-index: 500; opacity: 0; pointer-events: none; transition: opacity .4s; }
+  .comp-overlay.show { opacity: 1; pointer-events: all; }
+  .comp-card { background: var(--card); border: 1px solid var(--accent2); border-radius: 20px; padding: 28px 34px; text-align: center; max-width: 500px; width: 92%; transform: scale(.82); transition: transform .5s cubic-bezier(.34,1.56,.64,1); position: relative; overflow: hidden; box-shadow: 0 0 60px rgba(16,185,129,.15); }
+  .comp-overlay.show .comp-card { transform: scale(1); }
+  @keyframes trophyPop { from{transform:scale(0) rotate(-20deg)} to{transform:scale(1) rotate(0)} }
+  .comp-trophy { font-size: 54px; display: block; margin-bottom: 6px; animation: trophyPop .6s cubic-bezier(.34,1.56,.64,1) .25s both; }
+  .comp-title { font-size: 21px; font-weight: 800; color: var(--accent2); margin-bottom: 3px; }
+  .comp-sub { font-size: 11px; color: var(--muted); margin-bottom: 18px; }
+  .comp-stats { display: grid; grid-template-columns: repeat(4,1fr); gap: 8px; margin-bottom: 14px; }
+  .comp-stat { background: var(--bg); border-radius: 10px; padding: 9px 4px; }
+  .comp-stat-n { font-size: 24px; font-weight: 800; color: var(--accent); line-height: 1; }
+  .comp-stat-l { font-size: 9px; color: var(--muted); text-transform: uppercase; letter-spacing: .7px; margin-top: 2px; }
+  .comp-changes { background: var(--bg); border-radius: 10px; padding: 10px 12px; text-align: left; margin-bottom: 18px; font-size: 11px; color: var(--text); line-height: 1.9; max-height: 120px; overflow-y: auto; }
+  .comp-changes-title { font-size: 9px; color: var(--muted); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 6px; }
+  .confetti-p { position: absolute; border-radius: 2px; pointer-events: none; }
+  @keyframes confettiFall { 0%{transform:translateY(0) rotate(0);opacity:1} 100%{transform:translateY(380px) rotate(720deg);opacity:0} }
+</style>
+</head>
+<body>
+
+<!-- HEADER -->
+<header>
+  <div>
+    <div class="logo">🏥 Clínica San Rafael</div>
+    <div class="subtitle">Simulador de Segmentación de Red — VLANs</div>
+  </div>
+  <div class="steps-nav" id="stepsNav">
+    <button class="step-btn active" onclick="goStep(1)" id="sBtn1">Paso 1</button>
+    <button class="step-btn" onclick="goStep(2)" id="sBtn2">Paso 2</button>
+    <button class="step-btn" onclick="goStep(3)" id="sBtn3">Paso 3</button>
+    <button class="step-btn" onclick="goStep(4)" id="sBtn4">Paso 4</button>
+    <button class="cli-btn" id="cliBtn" onclick="toggleCLI()" title="Abrir CLI del switch (⌨)">
+      <span>⌨</span>
+      <span>Switch CLI</span>
+      <span class="cli-btn-badge">SW#</span>
+    </button>
+  </div>
+</header>
+
+<!-- PROGRESS -->
+<div class="progress-bar"><div class="progress-fill" id="progressFill" style="width:25%"></div></div>
+
+<!-- MAIN -->
+<div class="main">
+
+  <!-- LEFT PANEL -->
+  <div class="panel" id="leftPanel">
+    <div class="panel-title">Dispositivos</div>
+    <div class="device-item" draggable="true" data-type="switch" data-label="Switch L2" data-icon="🔀">
+      <span class="device-icon"><img src="../icons/switch.png" alt="switch"></span><span>Switch L2</span>
+    </div>
+    <div class="device-item" draggable="true" data-type="router" data-label="Router" data-icon="📡">
+      <span class="device-icon"><img src="../icons/router.png" alt="router"></span><span>Router</span>
+    </div>
+    <div class="device-item" draggable="true" data-type="firewall" data-label="Firewall" data-icon="🔥">
+      <span class="device-icon"><img src="../icons/firewall.png" alt="firewall"></span><span>Firewall</span>
+    </div>
+    <div class="device-item" draggable="true" data-type="server" data-label="Servidor" data-icon="🖥️">
+      <span class="device-icon"><img src="../icons/server.png" alt="server"></span><span>Servidor</span>
+    </div>
+    <div class="device-item" draggable="true" data-type="pc" data-label="PC" data-icon="💻">
+      <span class="device-icon"><img src="../icons/pc.png" alt="pc"></span><span>PC</span>
+    </div>
+    <div class="device-item" draggable="true" data-type="laptop" data-label="Laptop" data-icon="🖱️">
+      <span class="device-icon"><img src="../icons/workstation.png" alt="laptop"></span><span>Laptop</span>
+    </div>
+    <div class="device-item" draggable="true" data-type="ap" data-label="Access Point" data-icon="📶">
+      <span class="device-icon">📶</span><span>Access Point</span>
+    </div>
+    <div class="device-item" draggable="true" data-type="printer" data-label="Impresora" data-icon="🖨️">
+      <span class="device-icon">🖨️</span><span>Impresora</span>
+    </div>
+
+    <div class="panel-title" style="margin-top:8px">VLANs</div>
+    <div class="vlan-badges" id="vlanBadges">
+      <div class="vlan-badge" draggable="true" data-vlan="10" data-vname="Administración" style="background:rgba(59,130,246,.2);border:1px solid var(--vlan10);color:var(--vlan10)">
+        <span>🏢</span> VLAN 10 — Admin
+      </div>
+      <div class="vlan-badge" draggable="true" data-vlan="20" data-vname="Médicos" style="background:rgba(16,185,129,.2);border:1px solid var(--vlan20);color:var(--vlan20)">
+        <span>👨‍⚕️</span> VLAN 20 — Médicos
+      </div>
+      <div class="vlan-badge" draggable="true" data-vlan="30" data-vname="Enfermería" style="background:rgba(245,158,11,.2);border:1px solid var(--vlan30);color:var(--vlan30)">
+        <span>💊</span> VLAN 30 — Enfermería
+      </div>
+      <div class="vlan-badge" draggable="true" data-vlan="40" data-vname="Invitados" style="background:rgba(167,139,250,.2);border:1px solid var(--vlan40);color:var(--vlan40)">
+        <span>🌐</span> VLAN 40 — Invitados
+      </div>
+      <div class="vlan-badge" draggable="true" data-vlan="50" data-vname="Servidores" style="background:rgba(244,114,182,.2);border:1px solid var(--vlan50);color:var(--vlan50)">
+        <span>🖥️</span> VLAN 50 — Servidores
+      </div>
+      <div class="vlan-badge" draggable="true" data-vlan="60" data-vname="IT Gestión" style="background:rgba(251,146,60,.2);border:1px solid var(--vlan60);color:var(--vlan60)">
+        <span>🔧</span> VLAN 60 — IT
+      </div>
+    </div>
+  </div>
+
+  <!-- CANVAS WRAP -->
+  <div class="canvas-wrap">
+    <div class="step-info">
+      <span class="step-title" id="stepTitle">Paso 1</span>
+      <span class="step-desc" id="stepDesc">Arrastra los dispositivos al canvas para construir la topología base</span>
+      <div style="display:flex;gap:6px;">
+        <button class="btn btn-danger" onclick="clearCanvas()" style="font-size:11px">🗑 Limpiar</button>
+        <button class="btn btn-primary" id="validateBtn" onclick="validateStep()">Validar ✓</button>
+      </div>
+    </div>
+
+    <div class="toolbar" id="toolbar">
+      <button class="tool-btn" id="toolSelect" onclick="setTool('select')">☝️ Seleccionar</button>
+      <button class="tool-btn" id="toolConnect" onclick="setTool('connect')">🔗 Conectar</button>
+      <button class="tool-btn" id="toolTrunk" onclick="setTool('trunk')">🔀 Trunk</button>
+      <div class="tool-sep"></div>
+      <button class="tool-btn" onclick="openPingModal()">📡 Ping Test</button>
+      <div style="margin-left:auto;font-size:11px;color:var(--muted)" id="toolHint">Selecciona una herramienta</div>
+    </div>
+
+    <div id="canvas"
+      ondragover="onDragOver(event)"
+      ondrop="onDrop(event)"
+      onmousemove="onMouseMove(event)"
+      onclick="onCanvasClick(event)">
+      <svg id="svg-layer"></svg>
+    </div>
+  </div>
+
+  <!-- RIGHT PANEL -->
+  <div class="right-panel">
+    <div class="rp-section">
+      <div class="rp-title">Estado de la Red</div>
+      <div id="netStatus">
+        <div style="font-size:11px;color:var(--muted)">Sin dispositivos</div>
+      </div>
+    </div>
+    <div class="rp-section">
+      <div class="rp-title">Checklist</div>
+      <div class="check-list" id="checkList"></div>
+    </div>
+    <div class="rp-section">
+      <div class="rp-title">Leyenda VLANs</div>
+      <div style="display:flex;flex-direction:column;gap:4px">
+        <div style="font-size:10px;display:flex;align-items:center;gap:6px"><span style="width:10px;height:10px;border-radius:2px;background:var(--vlan10);display:inline-block"></span>VLAN 10 — Administración</div>
+        <div style="font-size:10px;display:flex;align-items:center;gap:6px"><span style="width:10px;height:10px;border-radius:2px;background:var(--vlan20);display:inline-block"></span>VLAN 20 — Médicos</div>
+        <div style="font-size:10px;display:flex;align-items:center;gap:6px"><span style="width:10px;height:10px;border-radius:2px;background:var(--vlan30);display:inline-block"></span>VLAN 30 — Enfermería</div>
+        <div style="font-size:10px;display:flex;align-items:center;gap:6px"><span style="width:10px;height:10px;border-radius:2px;background:var(--vlan40);display:inline-block"></span>VLAN 40 — Invitados</div>
+        <div style="font-size:10px;display:flex;align-items:center;gap:6px"><span style="width:10px;height:10px;border-radius:2px;background:var(--vlan50);display:inline-block"></span>VLAN 50 — Servidores</div>
+        <div style="font-size:10px;display:flex;align-items:center;gap:6px"><span style="width:10px;height:10px;border-radius:2px;background:var(--vlan60);display:inline-block"></span>VLAN 60 — IT Gestión</div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- CLI MODAL -->
+<div class="cli-overlay" id="cliOverlay" onclick="handleOverlayClick(event)">
+  <div class="cli-modal" id="cliModal">
+    <div class="cli-titlebar">
+      <div class="cli-titlebar-dots">
+        <div class="cli-titlebar-dot" style="background:#ef4444" onclick="closeCLI()"></div>
+        <div class="cli-titlebar-dot" style="background:#f59e0b"></div>
+        <div class="cli-titlebar-dot" style="background:#10b981"></div>
+      </div>
+      <span style="flex:1;font-size:11px;color:#64748b;font-family:monospace">switch@clinica-san-rafael — Lab 1</span>
+      <button class="cli-titlebar-close" onclick="closeCLI()">✕</button>
+    </div>
+    <div class="cli-out" id="cliOutput"></div>
+    <div class="cli-input-row">
+      <span class="cli-prompt-lbl">SW#</span>
+      <input class="cli-field" id="cliInput" type="text" autocomplete="off" spellcheck="false" placeholder="escribe un comando..." onkeydown="onCLI(event)">
+    </div>
+  </div>
+</div>
+
+<!-- PING MODAL -->
+<div class="modal-overlay" id="pingModal" onclick="if(event.target===this)closePing()">
+  <div class="modal">
+    <h3>📡 Prueba de Conectividad Cruzada</h3>
+    <p style="font-size:12px;color:var(--muted);margin-bottom:12px">Simula pings entre dispositivos de distintas VLANs para validar el aislamiento.</p>
+    <div id="pingBody"></div>
+    <div class="ping-result" id="pingOutput"></div>
+    <div style="display:flex;gap:8px;margin-top:12px">
+      <button class="btn btn-primary" onclick="runPingTest()">Ejecutar Ping Test</button>
+      <button class="btn" style="background:var(--card);border:1px solid var(--border)" onclick="closePing()">Cerrar</button>
+    </div>
+  </div>
+</div>
+
+<!-- TOAST -->
+<div class="toast" id="toast"></div>
+
+<!-- COMPLETION OVERLAY -->
+<div class="comp-overlay" id="compOverlay">
+  <div class="comp-card" id="compCard">
+    <span class="comp-trophy">🏆</span>
+    <div class="comp-title">¡Laboratorio Completado!</div>
+    <div class="comp-sub">Clínica San Rafael — VLANs &amp; Segmentación de Red</div>
+    <div class="comp-stats">
+      <div class="comp-stat"><div class="comp-stat-n" id="cst-dev">0</div><div class="comp-stat-l">Dispositivos</div></div>
+      <div class="comp-stat"><div class="comp-stat-n" id="cst-lnk">0</div><div class="comp-stat-l">Conexiones</div></div>
+      <div class="comp-stat"><div class="comp-stat-n" id="cst-vln">0</div><div class="comp-stat-l">VLANs</div></div>
+      <div class="comp-stat"><div class="comp-stat-n" id="cst-trk">0</div><div class="comp-stat-l">Trunks</div></div>
+    </div>
+    <div class="comp-changes">
+      <div class="comp-changes-title">Configuración aplicada</div>
+      <div id="compChanges"></div>
+    </div>
+    <div style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap">
+      <a href="../lab2/index.html" style="background:var(--accent2);color:#fff;padding:9px 22px;border-radius:8px;text-decoration:none;font-size:13px;font-weight:700;display:inline-block">Lab 2: Router-on-a-Stick →</a>
+      <button onclick="document.getElementById('compOverlay').classList.remove('show')" style="background:var(--card);border:1px solid var(--border);color:var(--muted);padding:9px 14px;border-radius:8px;cursor:pointer;font-size:12px">Seguir explorando</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// =========================================================
+// STATE
+// =========================================================
+let state = {
+  step: 1,
+  nodes: [],      // {id, type, label, icon, x, y, vlan, vname}
+  links: [],      // {id, from, to, trunk}
+  tool: 'select',
+  connecting: null, // node id being connected from
+  mouseX: 0,
+  mouseY: 0,
+  nodeCount: 0,
+  linkCount: 0,
+  completedSteps: [],
+  cliHistory: [],
+  vlanConfig: {},  // vlanId -> {name, ports: [nodeIds]}
+  trunkLinks: []
+};
+
+const VLAN_COLORS = {10:'#3b82f6',20:'#10b981',30:'#f59e0b',40:'#a78bfa',50:'#f472b6',60:'#fb923c'};
+const VLAN_NAMES = {10:'Administración',20:'Médicos',30:'Enfermería',40:'Invitados',50:'Servidores',60:'IT Gestión'};
+
+const STEPS = {
+  1: { title: 'Paso 1 — Topología Base', desc: 'Arrastra: 1 Switch L2 + 6 dispositivos al canvas. Conecta cada dispositivo al switch.' },
+  2: { title: 'Paso 2 — Asignación de VLANs', desc: 'Arrastra las etiquetas VLAN sobre cada dispositivo para asignar segmentos lógicos.' },
+  3: { title: 'Paso 3 — Trunk + Router', desc: 'Agrega un Router, conecta con enlace Trunk al Switch. Configura el enlace como interVLAN.' },
+  4: { title: 'Paso 4 — CLI + Validación Final', desc: 'Usa la CLI para configurar el switch y ejecuta Ping Test para validar aislamiento.' }
+};
+
+// =========================================================
+// DRAG FROM PANEL
+// =========================================================
+let dragData = null;
+
+document.querySelectorAll('.device-item, .vlan-badge').forEach(el => {
+  el.addEventListener('dragstart', e => {
+    if(el.dataset.type) {
+      dragData = { kind:'device', type:el.dataset.type, label:el.dataset.label, icon:el.dataset.icon };
+    } else if(el.dataset.vlan) {
+      dragData = { kind:'vlan', vlan: parseInt(el.dataset.vlan), vname: el.dataset.vname };
+    }
+    e.dataTransfer.effectAllowed = 'copy';
+  });
+});
+
+function onDragOver(e) { e.preventDefault(); e.dataTransfer.dropEffect = 'copy'; }
+
+function onDrop(e) {
+  e.preventDefault();
+  if(!dragData) return;
+  const canvas = document.getElementById('canvas');
+  const rect = canvas.getBoundingClientRect();
+  const x = e.clientX - rect.left - 40;
+  const y = e.clientY - rect.top - 40;
+
+  if(dragData.kind === 'device') {
+    addNode(dragData.type, dragData.label, dragData.icon, x, y);
+  } else if(dragData.kind === 'vlan') {
+    // Find closest node
+    const target = findClosestNode(e.clientX - rect.left, e.clientY - rect.top);
+    if(target) assignVlan(target.id, dragData.vlan, dragData.vname);
+    else showToast('Suelta la VLAN sobre un dispositivo', 'warn');
+  }
+  dragData = null;
+  render();
+}
+
+function findClosestNode(x, y) {
+  let best = null, bestDist = 80;
+  state.nodes.forEach(n => {
+    const cx = n.x + 40, cy = n.y + 40;
+    const d = Math.hypot(cx - x, cy - y);
+    if(d < bestDist) { bestDist = d; best = n; }
+  });
+  return best;
+}
+
+// =========================================================
+// NODES
+// =========================================================
+function addNode(type, label, icon, x, y) {
+  const id = 'n' + (++state.nodeCount);
+  // Count existing of same type for label
+  const count = state.nodes.filter(n=>n.type===type).length + 1;
+  const fullLabel = label + (count > 1 ? ' '+count : '');
+  state.nodes.push({id, type, label:fullLabel, icon, x, y, vlan:null, vname:null});
+  return id;
+}
+
+function assignVlan(nodeId, vlan, vname) {
+  const node = state.nodes.find(n=>n.id===nodeId);
+  if(node) { node.vlan = vlan; node.vname = vname; showToast(`VLAN ${vlan} asignada a ${node.label}`, 'ok'); }
+}
+
+function deleteNode(id) {
+  state.nodes = state.nodes.filter(n=>n.id!==id);
+  state.links = state.links.filter(l=>l.from!==id && l.to!==id);
+  render();
+}
+
+// =========================================================
+// LINKS
+// =========================================================
+function addLink(fromId, toId, trunk=false) {
+  const exists = state.links.find(l => (l.from===fromId&&l.to===toId)||(l.from===toId&&l.to===fromId));
+  if(exists) { showToast('Ya existe un enlace entre estos dispositivos', 'warn'); return; }
+  const id = 'l'+(++state.linkCount);
+  state.links.push({id, from:fromId, to:toId, trunk});
+}
+
+function deleteLink(id) {
+  state.links = state.links.filter(l=>l.id!==id);
+  render();
+}
+
+// =========================================================
+// TOOL SYSTEM
+// =========================================================
+function setTool(t) {
+  state.tool = t;
+  state.connecting = null;
+  const canvas = document.getElementById('canvas');
+  canvas.classList.toggle('connecting', t==='connect'||t==='trunk');
+  document.querySelectorAll('.tool-btn').forEach(b=>b.classList.remove('active'));
+  if(t==='select') document.getElementById('toolSelect').classList.add('active');
+  if(t==='connect') { document.getElementById('toolConnect').classList.add('active'); setHint('Haz clic en un dispositivo origen, luego en el destino'); }
+  if(t==='trunk') { document.getElementById('toolTrunk').classList.add('active'); setHint('Haz clic en Switch → Router para enlace Trunk'); }
+  removeTempLine();
+  render();
+}
+function setHint(h) { document.getElementById('toolHint').textContent = h; }
+
+// =========================================================
+// NODE DRAGGING ON CANVAS
+// =========================================================
+let draggingNode = null, dragOffX=0, dragOffY=0;
+let tempLine = null;
+
+function onNodeMouseDown(e, id) {
+  if(state.tool !== 'select') {
+    onNodeClick(id);
+    return;
+  }
+  e.stopPropagation();
+  draggingNode = id;
+  const node = state.nodes.find(n=>n.id===id);
+  const canvas = document.getElementById('canvas').getBoundingClientRect();
+  dragOffX = e.clientX - canvas.left - node.x;
+  dragOffY = e.clientY - canvas.top - node.y;
+  e.preventDefault();
+}
+
+document.addEventListener('mousemove', e => {
+  if(!draggingNode) return;
+  const canvas = document.getElementById('canvas').getBoundingClientRect();
+  const node = state.nodes.find(n=>n.id===draggingNode);
+  if(node) {
+    node.x = Math.max(0, e.clientX - canvas.left - dragOffX);
+    node.y = Math.max(0, e.clientY - canvas.top - dragOffY);
+    render();
+  }
+});
+
+document.addEventListener('mouseup', () => { draggingNode = null; });
+
+function onMouseMove(e) {
+  const rect = e.currentTarget.getBoundingClientRect();
+  state.mouseX = e.clientX - rect.left;
+  state.mouseY = e.clientY - rect.top;
+  if(state.connecting) updateTempLine();
+}
+
+// =========================================================
+// CONNECT TOOL
+// =========================================================
+function onNodeClick(id) {
+  if(state.tool === 'select') return;
+  if(!state.connecting) {
+    state.connecting = id;
+    setHint('Ahora haz clic en el dispositivo destino');
+    render();
+    return;
+  }
+  if(state.connecting === id) { state.connecting = null; removeTempLine(); render(); return; }
+  const trunk = state.tool === 'trunk';
+  addLink(state.connecting, id, trunk);
+  state.connecting = null;
+  removeTempLine();
+  render();
+  updateStatus();
+}
+
+function onCanvasClick(e) {
+  if(e.target.id==='canvas' || e.target.id==='svg-layer') {
+    state.connecting = null;
+    removeTempLine();
+    render();
+  }
+}
+
+function updateTempLine() {
+  const svg = document.getElementById('svg-layer');
+  const from = state.nodes.find(n=>n.id===state.connecting);
+  if(!from) return;
+  if(!tempLine) { tempLine = document.createElementNS('http://www.w3.org/2000/svg','line'); tempLine.classList.add('connecting-line'); svg.appendChild(tempLine); }
+  tempLine.setAttribute('x1', from.x+36); tempLine.setAttribute('y1', from.y+36);
+  tempLine.setAttribute('x2', state.mouseX); tempLine.setAttribute('y2', state.mouseY);
+}
+function removeTempLine() { if(tempLine) { tempLine.remove(); tempLine=null; } }
+
+// =========================================================
+// RENDER
+// =========================================================
+function render() {
+  renderLinks();
+  renderNodes();
+  updateStatus();
+  renderCheckList();
+}
+
+const NODE_ICONS = {
+  switch:   '../icons/switch.png',
+  router:   '../icons/router.png',
+  firewall: '../icons/firewall.png',
+  server:   '../icons/server.png',
+  pc:       '../icons/pc.png',
+  laptop:   '../icons/workstation.png',
+};
+
+function renderNodes() {
+  const canvas = document.getElementById('canvas');
+  document.querySelectorAll('.node').forEach(n=>n.remove());
+  state.nodes.forEach(node => {
+    const el = document.createElement('div');
+    el.className = 'node';
+    el.id = 'node-'+node.id;
+    el.style.left = node.x+'px';
+    el.style.top = node.y+'px';
+    const vcolor = node.vlan ? VLAN_COLORS[node.vlan] : null;
+    const border = node.id===state.connecting ? 'var(--warn)' : (vcolor || 'var(--border)');
+    const shadow = node.id===state.connecting ? '0 0 16px rgba(245,158,11,.6)' : (vcolor ? `0 0 12px ${vcolor}44` : 'none');
+    const iconHtml = NODE_ICONS[node.type]
+      ? `<img src="${NODE_ICONS[node.type]}" alt="${node.type}">`
+      : node.icon;
+    el.innerHTML = `
+      <div class="node-box" style="border-color:${border};box-shadow:${shadow}" onmousedown="onNodeMouseDown(event,'${node.id}')">
+        <button class="node-delete" onclick="event.stopPropagation();deleteNode('${node.id}')">✕</button>
+        <span class="node-icon">${iconHtml}</span>
+        <span class="node-label">${node.label}</span>
+        ${node.vlan ? `<span class="node-vlan" style="background:${vcolor}">${node.vname||'VLAN '+node.vlan}</span>` : ''}
+      </div>
+    `;
+    el.addEventListener('click', e => { e.stopPropagation(); onNodeClick(node.id); });
+    canvas.appendChild(el);
+  });
+}
+
+function renderLinks() {
+  const svg = document.getElementById('svg-layer');
+  svg.innerHTML = '';
+  state.links.forEach(link => {
+    const from = state.nodes.find(n=>n.id===link.from);
+    const to = state.nodes.find(n=>n.id===link.to);
+    if(!from||!to) return;
+    const x1=from.x+36, y1=from.y+36, x2=to.x+36, y2=to.y+36;
+    // Click area
+    const hit = document.createElementNS('http://www.w3.org/2000/svg','line');
+    hit.setAttribute('x1',x1); hit.setAttribute('y1',y1); hit.setAttribute('x2',x2); hit.setAttribute('y2',y2);
+    hit.classList.add('link-delete');
+    hit.style.cursor = 'pointer';
+    hit.title = 'Clic para eliminar enlace';
+    hit.addEventListener('click', () => { if(confirm('¿Eliminar enlace?')) deleteLink(link.id); });
+    svg.appendChild(hit);
+    // Visible line
+    const line = document.createElementNS('http://www.w3.org/2000/svg','line');
+    line.setAttribute('x1',x1); line.setAttribute('y1',y1); line.setAttribute('x2',x2); line.setAttribute('y2',y2);
+    line.classList.add('link-line');
+    if(link.trunk) line.classList.add('trunk');
+    else {
+      // Color by VLAN if both share vlan
+      const fv = from.vlan, tv = to.vlan;
+      if(fv && fv===tv) { line.style.stroke=VLAN_COLORS[fv]; line.style.strokeWidth='2.5'; }
+    }
+    svg.appendChild(line);
+    // Label for trunk
+    if(link.trunk) {
+      const mx=(x1+x2)/2, my=(y1+y2)/2;
+      const txt = document.createElementNS('http://www.w3.org/2000/svg','text');
+      txt.setAttribute('x',mx); txt.setAttribute('y',my-6);
+      txt.setAttribute('text-anchor','middle'); txt.setAttribute('font-size','9');
+      txt.setAttribute('fill','#3b82f6'); txt.textContent='TRUNK';
+      svg.appendChild(txt);
+    }
+  });
+  if(tempLine) svg.appendChild(tempLine);
+}
+
+// =========================================================
+// STATUS PANEL
+// =========================================================
+function updateStatus() {
+  const s = document.getElementById('netStatus');
+  const switches = state.nodes.filter(n=>n.type==='switch');
+  const routers = state.nodes.filter(n=>n.type==='router');
+  const vlansUsed = [...new Set(state.nodes.filter(n=>n.vlan).map(n=>n.vlan))].sort((a,b)=>a-b);
+  const trunks = state.links.filter(l=>l.trunk);
+  s.innerHTML = `
+    <div class="rp-row"><span>Dispositivos</span><span>${state.nodes.length}</span></div>
+    <div class="rp-row"><span>Switches</span><span>${switches.length}</span></div>
+    <div class="rp-row"><span>Routers</span><span>${routers.length}</span></div>
+    <div class="rp-row"><span>Firewalls</span><span>${state.nodes.filter(n=>n.type==='firewall').length}</span></div>
+    <div class="rp-row"><span>Enlances</span><span>${state.links.length}</span></div>
+    <div class="rp-row"><span>Trunks</span><span>${trunks.length}</span></div>
+    <div class="rp-row"><span>VLANs activas</span><span>${vlansUsed.length}/6</span></div>
+    ${vlansUsed.map(v=>`<div class="rp-row"><span style="color:${VLAN_COLORS[v]}">VLAN ${v}</span><span style="color:${VLAN_COLORS[v]};font-size:10px">${VLAN_NAMES[v]}</span></div>`).join('')}
+  `;
+}
+
+// =========================================================
+// CHECKLIST
+// =========================================================
+function renderCheckList() {
+  const checks = getChecks(state.step);
+  const el = document.getElementById('checkList');
+  el.innerHTML = checks.map(c=>`<div class="check-item ${c.ok?'ok':'err'}">${c.label}</div>`).join('');
+}
+
+function getChecks(step) {
+  const sw = state.nodes.filter(n=>n.type==='switch');
+  const rt = state.nodes.filter(n=>n.type==='router');
+  const others = state.nodes.filter(n=>n.type!=='switch'&&n.type!=='router'&&n.type!=='firewall');
+  const vlansUsed = [...new Set(state.nodes.filter(n=>n.vlan).map(n=>n.vlan))];
+  const trunks = state.links.filter(l=>l.trunk);
+  const endDevices = state.nodes.filter(n=>['pc','laptop','server','printer','ap'].includes(n.type));
+  const nodesWithVlan = endDevices.filter(n=>n.vlan);
+
+  const allConnectedToSwitch = endDevices.every(nd => {
+    return state.links.some(l=>(l.from===nd.id||l.to===nd.id)&&
+      state.nodes.find(n=>n.id===(l.from===nd.id?l.to:l.from)&&n.type==='switch'));
+  });
+
+  if(step===1) return [
+    {ok: sw.length>=1, label:'1 Switch L2 en canvas'},
+    {ok: state.nodes.length>=7, label:'Al menos 6 dispositivos finales'},
+    {ok: state.links.length>=6, label:'Mínimo 6 conexiones'},
+    {ok: allConnectedToSwitch, label:'Dispositivos conectados al switch'},
+  ];
+  if(step===2) return [
+    {ok: vlansUsed.length>=6, label:'6 VLANs distintas asignadas'},
+    {ok: vlansUsed.includes(10), label:'VLAN 10 — Administración'},
+    {ok: vlansUsed.includes(20), label:'VLAN 20 — Médicos'},
+    {ok: vlansUsed.includes(30), label:'VLAN 30 — Enfermería'},
+    {ok: vlansUsed.includes(40), label:'VLAN 40 — Invitados'},
+    {ok: vlansUsed.includes(50), label:'VLAN 50 — Servidores'},
+    {ok: vlansUsed.includes(60), label:'VLAN 60 — IT'},
+    {ok: nodesWithVlan.length>=6, label:'6+ dispositivos con VLAN'},
+  ];
+  if(step===3) return [
+    {ok: rt.length>=1, label:'1 Router en canvas'},
+    {ok: trunks.length>=1, label:'Enlace Trunk configurado'},
+    {ok: trunks.some(l=>{
+      const a=state.nodes.find(n=>n.id===l.from), b=state.nodes.find(n=>n.id===l.to);
+      return (a?.type==='switch'&&b?.type==='router')||(a?.type==='router'&&b?.type==='switch');
+    }), label:'Trunk entre Switch y Router'},
+    {ok: vlansUsed.length>=6, label:'VLANs asignadas mantenidas'},
+  ];
+  if(step===4) return [
+    {ok: state.cliHistory.some(c=>c.includes('vlan')), label:'VLANs creadas en CLI'},
+    {ok: state.cliHistory.some(c=>c.includes('switchport')), label:'Puertos configurados en CLI'},
+    {ok: state.cliHistory.some(c=>c.includes('trunk')), label:'Trunk configurado en CLI'},
+    {ok: state.pingDone, label:'Ping Test ejecutado'},
+  ];
+  return [];
+}
+
+// =========================================================
+// STEP VALIDATION
+// =========================================================
+function validateStep() {
+  const checks = getChecks(state.step);
+  const allOk = checks.every(c=>c.ok);
+  if(!allOk) {
+    const pending = checks.filter(c=>!c.ok).map(c=>c.label).join(', ');
+    showToast('Faltan: '+pending, 'warn'); return;
+  }
+  if(!state.completedSteps.includes(state.step)) state.completedSteps.push(state.step);
+  document.getElementById('sBtn'+state.step).classList.add('done');
+  showToast(`¡Paso ${state.step} completado! 🎉`, 'ok');
+  if(state.step < 4) setTimeout(()=>goStep(state.step+1), 1200);
+  else { showToast('¡Red de la Clínica configurada! 🏥', 'ok'); setTimeout(showCompletion, 900); }
+}
+
+// =========================================================
+// STEP NAVIGATION
+// =========================================================
+function goStep(n) {
+  state.step = n;
+  document.querySelectorAll('.step-btn').forEach((b,i)=>{
+    b.classList.toggle('active', i+1===n);
+  });
+  const s = STEPS[n];
+  document.getElementById('stepTitle').textContent = s.title;
+  document.getElementById('stepDesc').textContent = s.desc;
+  document.getElementById('progressFill').style.width = (n*25)+'%';
+  const btn = document.getElementById('cliBtn');
+  if (n === 4) { btn.classList.add('visible', 'pulse'); }
+  else { btn.classList.remove('visible', 'pulse', 'active'); closeCLI(); }
+  render();
+}
+
+// =========================================================
+// CLI (Paso 4)
+// =========================================================
+const CLI_CMDS = {
+  'enable': ()=> { setTimeout(()=>{ flashSwitch(); showCanvasBanner('Modo privilegiado activado 🔓','var(--warn)'); },60); return '> Modo privilegiado activado'; },
+  'configure terminal': ()=> { setTimeout(()=>{ flashSwitch(); showCanvasBanner('Modo configuración global ⚙️','var(--accent)'); },60); return '> Entrando en modo de configuración'; },
+  'conf t': ()=> { setTimeout(()=>{ flashSwitch(); showCanvasBanner('Modo configuración global ⚙️','var(--accent)'); },60); return '> Entrando en modo de configuración'; },
+  'show vlan brief': ()=> {
+    setTimeout(()=>{
+      const vlans = [...new Set(state.nodes.filter(n=>n.vlan).map(n=>n.vlan))];
+      vlans.forEach((v,i)=>setTimeout(()=>pulseVlanNodes(v), i*120));
+      showCanvasBanner('show vlan brief — VLANs pulsando 📋','var(--muted)');
+    },60);
+    let o = 'VLAN  Name                 Status   Ports\n';
+    o += '----  -------------------  -------  --------\n';
+    [10,20,30,40,50,60].forEach(v=>{
+      const ports = state.nodes.filter(n=>n.vlan===v).map(n=>n.label.substring(0,8));
+      o += `${String(v).padEnd(5)} ${VLAN_NAMES[v].padEnd(20)} active   ${ports.join(',')||'—'}\n`;
+    });
+    return o;
+  },
+  'show interfaces trunk': ()=> {
+    setTimeout(()=>{ pulseTrunkLinks(); showCanvasBanner('Trunk links pulsando 🔀','var(--accent)'); },60);
+    if(!state.links.some(l=>l.trunk)) return '% No hay interfaces trunk configuradas';
+    return 'Port    Mode    Encap   Status   Native vlan\nGi0/1   trunk   802.1q  connected  99';
+  },
+  'show running-config': ()=> { setTimeout(()=>flashSwitch(),60); return '(Running config — use comandos específicos)'; },
+  'exit': ()=> '> Saliendo del modo actual',
+};
+const CLI_PATTERNS = [
+  { p: /^vlan\s+(\d+)$/, fn: m => {
+    cliAddHistory('vlan');
+    const v = parseInt(m[1]);
+    setTimeout(()=>{ flashSwitch(); pulseVlanNodes(v); showCanvasBanner(`VLAN ${v} creada en DB 📋`, VLAN_COLORS[v]||'var(--accent2)'); },60);
+    return `> VLAN ${m[1]} creada en base de datos`;
+  }},
+  { p: /^name\s+(.+)$/, fn: m => {
+    setTimeout(()=>{ flashSwitch(); showCanvasBanner(`Nombre asignado: ${m[1]}`,'var(--muted)'); },60);
+    return `> Nombre asignado: ${m[1]}`;
+  }},
+  { p: /^switchport mode (access|trunk)$/, fn: m => {
+    cliAddHistory('switchport'); cliAddHistory('trunk');
+    const isTrunk = m[1]==='trunk';
+    setTimeout(()=>{
+      flashSwitch();
+      if(isTrunk) pulseTrunkLinks();
+      showCanvasBanner(`Puerto → modo ${m[1]} ✓`, isTrunk?'var(--accent)':'var(--accent2)');
+    },60);
+    return `> Puerto configurado como ${m[1]}`;
+  }},
+  { p: /^switchport access vlan\s+(\d+)$/, fn: m => {
+    cliAddHistory('switchport');
+    const v = parseInt(m[1]);
+    setTimeout(()=>{ flashSwitch(); pulseVlanNodes(v); showCanvasBanner(`Port → VLAN ${v} ✓`, VLAN_COLORS[v]||'var(--accent2)'); },60);
+    return `> Puerto asignado a VLAN ${m[1]}`;
+  }},
+  { p: /^switchport trunk allowed vlan (.+)$/, fn: m => {
+    cliAddHistory('trunk'); cliAddHistory('switchport');
+    setTimeout(()=>{ pulseTrunkLinks(); showCanvasBanner(`Trunk VLANs: ${m[1]} ✓`,'var(--accent)'); },60);
+    return `> Trunk permite VLANs: ${m[1]}`;
+  }},
+  { p: /^switchport trunk native vlan\s+(\d+)$/, fn: m => {
+    setTimeout(()=>{ pulseTrunkLinks(); showCanvasBanner(`Native VLAN: ${m[1]}`,'var(--muted)'); },60);
+    return `> VLAN nativa del trunk: ${m[1]}`;
+  }},
+  { p: /^interface\s+(.+)$/, fn: m => {
+    setTimeout(()=>{ flashSwitch(); showCanvasBanner(`Interfaz ${m[1]} seleccionada`,'var(--muted)'); },60);
+    return `> Configurando interfaz ${m[1]}`;
+  }},
+  { p: /^interface range\s+(.+)$/, fn: m => {
+    setTimeout(()=>{ flashSwitch(); showCanvasBanner(`Rango: ${m[1]}`,'var(--muted)'); },60);
+    return `> Configurando rango: ${m[1]}`;
+  }},
+  { p: /^no shutdown$/, fn: ()=> {
+    setTimeout(()=>{ flashSwitch(); showCanvasBanner('Interfaz activada ✓','var(--accent2)'); },60);
+    return '> Interfaz activada';
+  }},
+  { p: /^ping\s+([\d.]+)$/, fn: m => {
+    setTimeout(()=>{ showCanvasBanner(`Ping → ${m[1]} ✓`,'var(--accent2)'); },60);
+    return `Sending 5 pings to ${m[1]}...\n!!!!!  Success rate 100%`;
+  }},
+];
+
+function cliAddHistory(cmd) {
+  if(!state.cliHistory.includes(cmd)) state.cliHistory.push(cmd);
+}
+
+// ── CLI MODAL ──────────────────────────────────────────────────────────────────
+function openCLI() {
+  document.getElementById('cliOverlay').classList.add('open');
+  document.getElementById('cliBtn').classList.add('active');
+  document.getElementById('cliBtn').classList.remove('pulse');
+  setTimeout(() => document.getElementById('cliInput').focus(), 120);
+}
+function closeCLI() {
+  document.getElementById('cliOverlay').classList.remove('open');
+  document.getElementById('cliBtn').classList.remove('active');
+  if (state.step === 4) document.getElementById('cliBtn').classList.add('pulse');
+}
+function toggleCLI() {
+  document.getElementById('cliOverlay').classList.contains('open') ? closeCLI() : openCLI();
+}
+function handleOverlayClick(e) {
+  if (e.target === document.getElementById('cliOverlay')) closeCLI();
+}
+document.addEventListener('keydown', e => { if (e.key === 'Escape') closeCLI(); });
+
+function onCLI(e) {
+  if(e.key!=='Enter') return;
+  const input = document.getElementById('cliInput');
+  const cmd = input.value.trim().toLowerCase();
+  if(!cmd) return;
+  input.value = '';
+  const out = document.getElementById('cliOutput');
+  const addLine = (txt, cls='') => {
+    txt.split('\n').forEach(line=>{
+      const d = document.createElement('div');
+      d.style.color = cls==='ok'?'#10b981':cls==='err'?'#ef4444':'#0f0';
+      d.textContent = line;
+      out.appendChild(d);
+    });
+    out.scrollTop = out.scrollHeight;
+  };
+  addLine('SW# '+cmd);
+  const exact = CLI_CMDS[cmd];
+  if(exact) { addLine(exact(), 'ok'); }
+  else {
+    let matched = false;
+    for(const pat of CLI_PATTERNS) {
+      const m = cmd.match(pat.p);
+      if(m) { addLine(pat.fn(m), 'ok'); matched=true; break; }
+    }
+    if(!matched) addLine(`% Invalid command: "${cmd}"`, 'err');
+  }
+  render();
+}
+
+// =========================================================
+// PING TEST
+// =========================================================
+function openPingModal() {
+  const el = document.getElementById('pingModal');
+  el.classList.add('show');
+  const body = document.getElementById('pingBody');
+  const vlans = [...new Set(state.nodes.filter(n=>n.vlan).map(n=>n.vlan))].sort((a,b)=>a-b);
+  if(vlans.length < 2) { body.innerHTML='<p style="color:var(--warn);font-size:12px">Necesitas al menos 2 VLANs asignadas para testear conectividad.</p>'; return; }
+  let html = '<table style="width:100%;border-collapse:collapse;font-size:11px">';
+  html += '<tr><th style="padding:4px;text-align:left;color:var(--muted)">Origen</th><th style="padding:4px;text-align:left;color:var(--muted)">Destino</th><th>Resultado</th></tr>';
+  const pairs = [];
+  for(let i=0;i<vlans.length;i++) for(let j=i+1;j<vlans.length;j++) pairs.push([vlans[i],vlans[j]]);
+  pairs.forEach(([a,b])=>{
+    const na = state.nodes.find(n=>n.vlan===a);
+    const nb = state.nodes.find(n=>n.vlan===b);
+    if(!na||!nb) return;
+    html += `<tr data-a="${a}" data-b="${b}" style="border-top:1px solid var(--border)">
+      <td style="padding:4px"><span style="color:${VLAN_COLORS[a]}">${na.label} (VLAN ${a})</span></td>
+      <td style="padding:4px"><span style="color:${VLAN_COLORS[b]}">${nb.label} (VLAN ${b})</span></td>
+      <td style="padding:4px;text-align:center" id="pr-${a}-${b}">—</td>
+    </tr>`;
+  });
+  html += '</table>';
+  body.innerHTML = html;
+}
+
+function runPingTest() {
+  const hasRouter = state.nodes.some(n=>n.type==='router');
+  const hasTrunk = state.links.some(l=>l.trunk);
+  const rows = document.querySelectorAll('#pingBody tr[data-a]');
+  const out = document.getElementById('pingOutput');
+  out.innerHTML = '';
+  const addLog = (txt, ok) => {
+    const d = document.createElement('div');
+    d.className = ok ? 'ping-ok' : 'ping-err';
+    d.textContent = txt;
+    out.appendChild(d);
+  };
+  addLog('> Iniciando pruebas de conectividad cruzada...', true);
+  addLog(`> Router InterVLAN: ${hasRouter&&hasTrunk?'ACTIVO':'INACTIVO'}`, hasRouter&&hasTrunk);
+  out.appendChild(document.createElement('br'));
+
+  rows.forEach((row,i) => {
+    const a = parseInt(row.dataset.a), b = parseInt(row.dataset.b);
+    const cell = document.getElementById(`pr-${a}-${b}`);
+    // Without router: same vlan OK, cross vlan BLOCKED
+    // With router+trunk: allow (simulated)
+    const sameVlan = a===b;
+    const routed = hasRouter && hasTrunk;
+    const success = sameVlan || routed;
+    setTimeout(()=>{
+      if(success) {
+        cell.innerHTML = '<span style="color:var(--accent2)">✓ Éxito</span>';
+        addLog(`VLAN ${a} → VLAN ${b}: 5/5 paquetes recibidos`, true);
+      } else {
+        cell.innerHTML = '<span style="color:var(--danger)">✗ Bloqueado</span>';
+        addLog(`VLAN ${a} → VLAN ${b}: Destino no alcanzable (aislamiento activo)`, false);
+      }
+      out.scrollTop = out.scrollHeight;
+    }, i*180);
+  });
+  state.pingDone = true;
+  setTimeout(()=>{ addLog('\n> Prueba completada. Red segmentada correctamente.', true); render(); }, rows.length*180+200);
+}
+
+function closePing() { document.getElementById('pingModal').classList.remove('show'); }
+
+// =========================================================
+// CLEAR
+// =========================================================
+function clearCanvas() {
+  if(!confirm('¿Limpiar el canvas?')) return;
+  state.nodes=[]; state.links=[]; state.nodeCount=0; state.linkCount=0; state.connecting=null;
+  removeTempLine(); render();
+}
+
+// =========================================================
+// TOAST
+// =========================================================
+let toastTimer;
+function showToast(msg, type='ok') {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.style.background = type==='ok' ? 'var(--accent2)' : type==='warn' ? 'var(--warn)' : 'var(--danger)';
+  t.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(()=>t.classList.remove('show'), 3000);
+}
+
+// =========================================================
+// CLI VISUAL FEEDBACK
+// =========================================================
+function showCanvasBanner(msg, color) {
+  let banner = document.getElementById('canvasBanner');
+  if(!banner) {
+    banner = document.createElement('div');
+    banner.id = 'canvasBanner';
+    document.getElementById('canvas').appendChild(banner);
+  }
+  banner.textContent = msg;
+  banner.style.background = color || 'var(--accent2)';
+  banner.classList.remove('show');
+  void banner.offsetWidth; // reflow
+  banner.classList.add('show');
+  clearTimeout(banner._t);
+  banner._t = setTimeout(()=>banner.classList.remove('show'), 1400);
+}
+
+function flashSwitch() {
+  state.nodes.filter(n=>n.type==='switch').forEach(sw=>{
+    const el = document.getElementById('node-'+sw.id);
+    if(!el) return;
+    el.classList.remove('switch-flash');
+    void el.offsetWidth;
+    el.classList.add('switch-flash');
+    setTimeout(()=>el.classList.remove('switch-flash'), 600);
+  });
+}
+
+function pulseVlanNodes(vlan) {
+  state.nodes.filter(n=>n.vlan===vlan).forEach(node=>{
+    const el = document.getElementById('node-'+node.id);
+    if(!el) return;
+    el.classList.remove('node-pulse');
+    void el.offsetWidth;
+    el.classList.add('node-pulse');
+    setTimeout(()=>el.classList.remove('node-pulse'), 600);
+  });
+}
+
+function pulseTrunkLinks() {
+  document.querySelectorAll('.link-line.trunk').forEach(line=>{
+    const orig = line.style.strokeWidth || '3';
+    const origFilter = line.style.filter || '';
+    line.style.transition = 'stroke-width .15s, filter .15s';
+    line.style.strokeWidth = '6';
+    line.style.filter = 'drop-shadow(0 0 8px #3b82f6)';
+    setTimeout(()=>{
+      line.style.strokeWidth = orig;
+      line.style.filter = origFilter;
+      setTimeout(()=>line.style.transition='', 200);
+    }, 350);
+  });
+}
+
+// =========================================================
+// COMPLETION OVERLAY
+// =========================================================
+function showCompletion() {
+  const vlans = [...new Set(state.nodes.filter(n=>n.vlan).map(n=>n.vlan))];
+
+  animateCount('cst-dev', state.nodes.length);
+  animateCount('cst-lnk', state.links.length);
+  animateCount('cst-vln', vlans.length);
+  animateCount('cst-trk', state.links.filter(l=>l.trunk).length);
+
+  const lines = [];
+  vlans.sort((a,b)=>a-b).forEach(v=>{
+    const nodes = state.nodes.filter(n=>n.vlan===v);
+    const color = VLAN_COLORS[v];
+    lines.push(`<span style="color:${color}">●</span> <strong>VLAN ${v}</strong> (${VLAN_NAMES[v]}): ${nodes.map(n=>n.label).join(', ')}`);
+  });
+  state.links.filter(l=>l.trunk).forEach(l=>{
+    const a=state.nodes.find(n=>n.id===l.from), b=state.nodes.find(n=>n.id===l.to);
+    if(a&&b) lines.push(`🔀 <strong>Trunk 802.1Q:</strong> ${a.label} ↔ ${b.label}`);
+  });
+  if(state.cliHistory.includes('vlan')) lines.push(`⚙️ <strong>VLANs</strong> creadas en CLI del switch`);
+  if(state.cliHistory.includes('trunk')) lines.push(`⚙️ <strong>Trunk</strong> configurado en CLI`);
+  if(state.pingDone) lines.push(`✅ <strong>Ping Test</strong> ejecutado correctamente`);
+
+  document.getElementById('compChanges').innerHTML = lines.join('<br>') || 'Red configurada correctamente';
+  document.getElementById('compOverlay').classList.add('show');
+  spawnConfetti();
+}
+
+function animateCount(id, target) {
+  const el = document.getElementById(id);
+  if(!el) return;
+  let cur = 0;
+  const inc = Math.max(1, Math.ceil(target/20));
+  const t = setInterval(()=>{
+    cur = Math.min(cur+inc, target);
+    el.textContent = cur;
+    if(cur>=target) clearInterval(t);
+  }, 45);
+}
+
+function spawnConfetti() {
+  const card = document.getElementById('compCard');
+  const colors = ['#3b82f6','#10b981','#f59e0b','#a78bfa','#f472b6','#fb923c','#ef4444'];
+  for(let i=0;i<55;i++) {
+    setTimeout(()=>{
+      const p = document.createElement('div');
+      p.className = 'confetti-p';
+      const size = 5+Math.random()*7;
+      p.style.cssText = `width:${size}px;height:${size}px;background:${colors[i%colors.length]};left:${Math.random()*95}%;top:-8px;animation:confettiFall ${1+Math.random()*1.5}s ease-in ${Math.random()*0.4}s forwards`;
+      card.appendChild(p);
+      setTimeout(()=>p.remove(), 2800);
+    }, i*22);
+  }
+}
+
+// =========================================================
+// INIT
+// =========================================================
+setTool('select');
+goStep(1);
+
+// Pre-populate step 1 with a basic layout hint (optional ghost)
+function seedDemo() {
+  // Place a switch in center as starting point
+  addNode('switch','Switch L2','🔀', 300, 200);
+  render();
+}
+seedDemo();
+</script>
+</body>
+</html>
