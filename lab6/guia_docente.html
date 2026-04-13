@@ -1,0 +1,712 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Guía Docente — Lab 6: Simulador de Switch Cisco L2</title>
+<style>
+  :root {
+    --bg:#0f1117;--panel:#161b27;--card:#1e2535;--border:#2a3347;
+    --accent:#06b6d4;--ok:#10b981;--warn:#f59e0b;--err:#ef4444;
+    --purple:#a78bfa;--text:#e2e8f0;--muted:#64748b;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{background:var(--bg);color:var(--text);font-family:'Segoe UI',system-ui,sans-serif;line-height:1.7}
+
+  /* HEADER */
+  .doc-header{background:var(--panel);border-bottom:2px solid var(--accent);padding:28px 40px;display:flex;align-items:flex-start;gap:20px}
+  .doc-badge{background:rgba(6,182,212,.15);border:1px solid var(--accent);color:var(--accent);font-size:10px;font-weight:700;padding:3px 12px;border-radius:20px;white-space:nowrap;margin-top:4px}
+  .doc-title{font-size:26px;font-weight:800;color:var(--accent);line-height:1.2}
+  .doc-sub{font-size:13px;color:var(--muted);margin-top:4px}
+  .doc-meta{margin-left:auto;text-align:right;font-size:11px;color:var(--muted);line-height:2}
+  .doc-meta strong{color:var(--text)}
+  .back-link{display:inline-flex;align-items:center;gap:6px;font-size:11px;color:var(--muted);text-decoration:none;margin-top:10px;transition:color .15s}
+  .back-link:hover{color:var(--accent)}
+
+  /* LAYOUT */
+  .doc-wrap{max-width:960px;margin:0 auto;padding:32px 24px}
+
+  /* SECTIONS */
+  section{margin-bottom:36px}
+  h2{font-size:15px;font-weight:700;color:var(--accent);text-transform:uppercase;letter-spacing:1.5px;margin-bottom:14px;display:flex;align-items:center;gap:10px}
+  h2::after{content:'';flex:1;height:1px;background:var(--border)}
+  h3{font-size:14px;font-weight:700;color:var(--text);margin-bottom:8px;margin-top:16px}
+  h4{font-size:12px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.8px;margin-bottom:6px;margin-top:12px}
+  p{font-size:13px;color:var(--text);margin-bottom:10px}
+  ul,ol{padding-left:20px;margin-bottom:10px}
+  li{font-size:13px;color:var(--text);padding:2px 0}
+  li strong{color:var(--accent)}
+  code{background:var(--card);border:1px solid var(--border);border-radius:4px;padding:1px 7px;font-family:'Courier New',monospace;font-size:11px;color:var(--warn)}
+  pre{background:var(--card);border:1px solid var(--border);border-radius:8px;padding:14px 16px;overflow-x:auto;margin:10px 0}
+  pre code{background:none;border:none;padding:0;font-size:12px;color:#e2e8f0;display:block;line-height:1.9}
+  pre .c-ok{color:#10b981}
+  pre .c-cyan{color:#06b6d4}
+  pre .c-warn{color:#f59e0b}
+  pre .c-err{color:#ef4444}
+  pre .c-muted{color:#64748b}
+
+  /* CARDS */
+  .card{background:var(--panel);border:1px solid var(--border);border-radius:10px;padding:16px 20px;margin-bottom:12px}
+  .card-accent{border-color:var(--accent)}
+  .card-warn{border-color:var(--warn)}
+  .card-ok{border-color:var(--ok)}
+  .card-err{border-color:var(--err)}
+  .card-purple{border-color:var(--purple)}
+
+  /* STEP BLOCKS */
+  .step-block{background:var(--panel);border:1px solid var(--border);border-radius:10px;overflow:hidden;margin-bottom:16px}
+  .step-head{display:flex;align-items:center;gap:12px;padding:12px 18px;border-bottom:1px solid var(--border);background:var(--card)}
+  .step-num-badge{width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:800;flex-shrink:0}
+  .step-head-title{font-size:13px;font-weight:700}
+  .step-head-sub{font-size:11px;color:var(--muted);margin-top:1px}
+  .step-body{padding:16px 18px}
+  .step-body > *:last-child{margin-bottom:0}
+
+  /* TAGS / PILLS */
+  .tag{display:inline-block;font-size:9px;font-weight:700;padding:2px 8px;border-radius:10px;text-transform:uppercase;letter-spacing:.5px;margin-right:4px;vertical-align:middle}
+  .tag-cyan{background:rgba(6,182,212,.15);color:var(--accent);border:1px solid var(--accent)}
+  .tag-ok{background:rgba(16,185,129,.15);color:var(--ok);border:1px solid var(--ok)}
+  .tag-warn{background:rgba(245,158,11,.15);color:var(--warn);border:1px solid var(--warn)}
+  .tag-err{background:rgba(239,68,68,.15);color:var(--err);border:1px solid var(--err)}
+  .tag-purple{background:rgba(167,139,250,.15);color:var(--purple);border:1px solid var(--purple)}
+
+  /* TABLES */
+  .doc-table{width:100%;border-collapse:collapse;font-size:12px;margin:10px 0}
+  .doc-table th{background:var(--card);color:var(--muted);text-align:left;padding:8px 12px;border:1px solid var(--border);font-size:11px;text-transform:uppercase;letter-spacing:.5px}
+  .doc-table td{padding:8px 12px;border:1px solid var(--border);vertical-align:top;color:var(--text)}
+  .doc-table tr:nth-child(even) td{background:rgba(30,37,53,.4)}
+
+  /* CALLOUTS */
+  .callout{border-radius:8px;padding:12px 16px;margin:12px 0;font-size:12px;display:flex;gap:12px;align-items:flex-start;line-height:1.7}
+  .callout-icon{font-size:18px;flex-shrink:0;margin-top:1px}
+  .callout-info{background:rgba(6,182,212,.08);border:1px solid rgba(6,182,212,.3);color:var(--text)}
+  .callout-warn{background:rgba(245,158,11,.08);border:1px solid rgba(245,158,11,.3);color:var(--text)}
+  .callout-ok{background:rgba(16,185,129,.08);border:1px solid rgba(16,185,129,.3);color:var(--text)}
+  .callout-err{background:rgba(239,68,68,.08);border:1px solid rgba(239,68,68,.3);color:var(--text)}
+
+  /* GRID */
+  .grid-2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+  .grid-3{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+  @media(max-width:640px){.grid-2,.grid-3{grid-template-columns:1fr}}
+
+  /* PRINT */
+  @media print{
+    body{background:#fff;color:#111}
+    .doc-header{background:#f8fafc;border-color:#06b6d4}
+    .doc-title{color:#0284c7}.doc-sub,.doc-meta,.back-link{color:#555}
+    .card,.step-block,.step-head{background:#f8fafc;border-color:#ddd}
+    code{background:#f1f5f9;border-color:#ddd;color:#b45309}
+    pre{background:#f1f5f9;border-color:#ddd}
+    h2::after{background:#ddd}
+    .callout-info{background:#e0f7fa;border-color:#b2ebf2}
+    .callout-warn{background:#fff8e1;border-color:#ffe082}
+    .callout-ok{background:#e8f5e9;border-color:#a5d6a7}
+    .callout-err{background:#fce4ec;border-color:#f48fb1}
+    .tag-cyan{background:#e0f7fa;color:#0284c7;border-color:#b2ebf2}
+    .tag-ok{background:#e8f5e9;color:#059669;border-color:#a5d6a7}
+    .tag-warn{background:#fff8e1;color:#b45309;border-color:#ffe082}
+    .tag-err{background:#fce4ec;color:#dc2626;border-color:#f48fb1}
+    .tag-purple{background:#ede9fe;color:#7c3aed;border-color:#c4b5fd}
+    pre .c-ok{color:#059669}.pre .c-cyan{color:#0284c7}.pre .c-warn{color:#b45309}.pre .c-err{color:#dc2626}.pre .c-muted{color:#888}
+  }
+</style>
+</head>
+<body>
+
+<!-- HEADER -->
+<div class="doc-header">
+  <div>
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">
+      <span class="doc-badge">GUÍA DOCENTE</span>
+      <span class="doc-badge" style="border-color:var(--purple);color:var(--purple);background:rgba(167,139,250,.12)">LAB 6</span>
+    </div>
+    <div class="doc-title">Simulador de Switch Cisco L2</div>
+    <div class="doc-sub">MAC Address Learning · VLANs · Trunk 802.1Q · STP/RSTP · Port Security</div>
+    <a href="index.html" class="back-link">← Abrir simulador</a>
+  </div>
+  <div class="doc-meta">
+    <div><strong>Módulo:</strong> 04 Ciberseguridad / Redes</div>
+    <div><strong>Duración estimada:</strong> 60–90 min</div>
+    <div><strong>Nivel:</strong> Intermedio</div>
+    <div><strong>Prerrequisito:</strong> Lab 1 · Lab 2</div>
+    <div><strong>Máx. puntuación:</strong> 100 pts</div>
+    <div style="margin-top:6px"><strong>Herramienta:</strong> HTML + Cisco IOS simulado</div>
+  </div>
+</div>
+
+<div class="doc-wrap">
+
+  <!-- 1. DESCRIPCIÓN -->
+  <section>
+    <h2>1 · Descripción general</h2>
+    <p>
+      El laboratorio simula la configuración completa de un switch Cisco Catalyst de capa 2 en el entorno hospitalario <em>Clínica San Rafael</em>. El estudiante <strong>construye la topología desde cero</strong> arrastrando dispositivos al canvas libre (drag-and-drop) e interactúa con una terminal Cisco IOS simulada para completar cinco pasos progresivos que cubren los fundamentos del switching L2.
+    </p>
+    <div class="grid-2">
+      <div class="card card-accent">
+        <h4>Escenario</h4>
+        <p style="margin:0">El SW-Core de la clínica conecta las PCs de médicos y RRHH con el servidor de expedientes. El ingeniero de red debe configurar VLANs, trunks, STP y port security antes de la puesta en producción.</p>
+      </div>
+      <div class="card">
+        <h4>Tecnologías simuladas</h4>
+        <ul style="margin:0">
+          <li>Cisco IOS 15.2 (CLI interactivo)</li>
+          <li>IEEE 802.1Q trunk encapsulation</li>
+          <li>IEEE 802.1w RSTP</li>
+          <li>IEEE 802.1D STP</li>
+          <li>Cisco Port Security</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <!-- 2. OBJETIVOS -->
+  <section>
+    <h2>2 · Objetivos de aprendizaje</h2>
+    <p>Al finalizar el laboratorio, el estudiante será capaz de:</p>
+    <div class="grid-2">
+      <div>
+        <h4>Conceptuales</h4>
+        <ul>
+          <li>Explicar el proceso de <strong>MAC address learning</strong> y flooding</li>
+          <li>Describir la estructura de la <strong>tabla CAM</strong> y su TTL</li>
+          <li>Distinguir entre VLANs de acceso y trunks 802.1Q</li>
+          <li>Explicar la elección de <strong>Root Bridge</strong> en STP/RSTP</li>
+          <li>Identificar los vectores de ataque que mitiga Port Security</li>
+        </ul>
+      </div>
+      <div>
+        <h4>Procedimentales</h4>
+        <ul>
+          <li>Crear y nombrar VLANs en Cisco IOS</li>
+          <li>Asignar puertos de acceso a VLANs</li>
+          <li>Configurar un puerto trunk con VLANs permitidas</li>
+          <li>Activar RSTP y verificar puertos bloqueados</li>
+          <li>Configurar port-security con sticky MACs y modo violación</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="callout callout-info" style="margin-top:14px">
+      <span class="callout-icon">🎯</span>
+      <div>
+        <strong>Conexión curricular:</strong> Este lab consolida el Lab 1 (VLANs drag-and-drop) y Lab 2 (Router-on-a-Stick) con la perspectiva de la configuración del switch como dispositivo central. Es prerrequisito recomendado para los laboratorios de ciberseguridad activa (Lab 4: MAC Flooding, Lab 5: ARP Spoofing).
+      </div>
+    </div>
+  </section>
+
+  <!-- 3. PRERREQUISITOS -->
+  <section>
+    <h2>3 · Prerrequisitos y preparación</h2>
+    <div class="grid-3">
+      <div class="card">
+        <h4>Del estudiante</h4>
+        <ul>
+          <li>Lab 1 completado (VLANs conceptuales)</li>
+          <li>Lab 2 completado (inter-VLAN routing)</li>
+          <li>Conocimiento básico de capas OSI 1–3</li>
+          <li>Familiaridad con navegador web moderno</li>
+        </ul>
+      </div>
+      <div class="card">
+        <h4>Conceptos clave previos</h4>
+        <ul>
+          <li>Diferencia hub vs switch</li>
+          <li>Qué es una dirección MAC</li>
+          <li>Concepto de dominio de colisión y broadcast</li>
+          <li>Subnetting básico (opcional)</li>
+        </ul>
+      </div>
+      <div class="card">
+        <h4>Técnico</h4>
+        <ul>
+          <li>Navegador: Chrome 90+, Firefox 88+, Edge 90+</li>
+          <li>Sin instalaciones requeridas</li>
+          <li>Sin conexión a internet necesaria</li>
+          <li>Resolución mínima: 1024 × 768</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <!-- 4. GUÍA POR PASO -->
+  <section>
+    <h2>4 · Guía paso a paso</h2>
+
+    <!-- PASO 1 -->
+    <div class="step-block">
+      <div class="step-head">
+        <div class="step-num-badge" style="background:rgba(6,182,212,.15);color:var(--accent);border:2px solid var(--accent)">1</div>
+        <div>
+          <div class="step-head-title">MAC Address Learning — Tabla CAM</div>
+          <div class="step-head-sub">
+            <span class="tag tag-cyan">Automatico</span>
+            <span class="tag tag-ok">15 pts</span>
+            <span class="tag tag-warn">~5 min</span>
+          </div>
+        </div>
+      </div>
+      <div class="step-body">
+
+        <h4>Qué hace el estudiante</h4>
+        <p>Arrastra desde el panel lateral los dispositivos necesarios: <strong>1 SW-Core</strong>, <strong>1 Switch L2</strong>, al menos <strong>2 PCs o Laptops</strong> y opcionalmente un <strong>Servidor</strong>. Luego abre el modal <strong>⚡ Configurar</strong> y hace clic en <em>Enviar tramas de red</em>. El simulador anima el proceso de MAC learning enviando tramas desde cada host al SW-Core. La tabla CAM se construye progresivamente.</p>
+
+        <h4>Puntos clave para reforzar en clase</h4>
+        <ul>
+          <li>La primera trama siempre genera <strong>flooding</strong> — el switch aún no sabe dónde está el destino</li>
+          <li>El flooding es por <em>segmento</em>, no por VLAN (las VLANs se configuran en pasos posteriores)</li>
+          <li>La tabla CAM tiene TTL de ~300 s; en el simulador persiste para el ejercicio</li>
+          <li>Las entradas <code>Dynamic</code> se aprenden; las <code>Static</code> se configuran manualmente</li>
+        </ul>
+
+        <h4>Pregunta de verificación rápida</h4>
+        <p class="callout callout-info" style="margin:0"><span class="callout-icon">❓</span><div>¿Qué pasaría si dos hosts tuviesen la misma dirección MAC en la misma VLAN? → El switch sobrescribiría la entrada CAM y podría causar pérdida de tráfico o un loop de aprendizaje.</div></p>
+
+        <h4>Error común</h4>
+        <p>El estudiante pasa al paso 2 sin ver la tabla CAM. Recordarle abrir el modal <strong>📋 MAC Table</strong> para visualizar las entradas antes de avanzar.</p>
+      </div>
+    </div>
+
+    <!-- PASO 2 -->
+    <div class="step-block">
+      <div class="step-head">
+        <div class="step-num-badge" style="background:rgba(167,139,250,.15);color:var(--purple);border:2px solid var(--purple)">2</div>
+        <div>
+          <div class="step-head-title">VLANs — Segmentación L2</div>
+          <div class="step-head-sub">
+            <span class="tag tag-purple">CLI IOS</span>
+            <span class="tag tag-ok">20 pts</span>
+            <span class="tag tag-warn">~15 min</span>
+          </div>
+        </div>
+      </div>
+      <div class="step-body">
+
+        <h4>Secuencia correcta de comandos</h4>
+        <pre><code><span class="c-muted">-- Crear VLANs --</span>
+SW-Core> enable
+SW-Core# configure terminal
+SW-Core(config)# vlan 10
+SW-Core(config-vlan)# name Medicos
+SW-Core(config-vlan)# exit
+SW-Core(config)# vlan 20
+SW-Core(config-vlan)# name Administracion
+SW-Core(config-vlan)# exit
+SW-Core(config)# vlan 30
+SW-Core(config-vlan)# name Servidores
+SW-Core(config-vlan)# exit
+
+<span class="c-muted">-- Asignar puertos de acceso --</span>
+SW-Core(config)# interface Fa0/1
+SW-Core(config-if)# switchport mode access
+SW-Core(config-if)# switchport access vlan 10
+SW-Core(config-if)# exit
+SW-Core(config)# interface Fa0/2
+SW-Core(config-if)# switchport mode access
+SW-Core(config-if)# switchport access vlan 20
+SW-Core(config-if)# exit
+SW-Core(config)# interface Fa0/4
+SW-Core(config-if)# switchport mode access
+SW-Core(config-if)# switchport access vlan 30
+
+<span class="c-muted">-- Verificación --</span>
+SW-Core# show vlan brief</code></pre>
+
+        <h4>Unlock trigger</h4>
+        <p>El lab desbloquea el paso 3 cuando las tres VLANs tienen nombre personalizado (<code>Medicos</code>, <code>Administracion</code>, <code>Servidores</code>). La asignación de puertos es parte del aprendizaje pero no es requisito para desbloquear.</p>
+
+        <div class="callout callout-warn">
+          <span class="callout-icon">⚠️</span>
+          <div>
+            <strong>Error frecuente #1:</strong> El estudiante escribe <code>name Médicos</code> con tilde. La CLI lo acepta pero el simulador espera exactamente <code>Medicos</code> (sin tilde). Indicar que en IOS real los caracteres especiales pueden causar problemas de interoperabilidad.<br>
+            <strong>Error frecuente #2:</strong> Intentar <code>switchport access vlan 10</code> antes de crear la VLAN. El simulador muestra error: <em>"VLAN not in database"</em>.
+          </div>
+        </div>
+
+        <h4>Concepto para reforzar</h4>
+        <p>Mostrar en el canvas cómo las insignias de VLAN sobre los nodos cambian de color al asignar los puertos. Preguntar: ¿pueden PC-Admin (VLAN 10) y PC-RRHH (VLAN 20) hacerse ping directamente? <strong>No</strong> — necesitan routing L3.</p>
+      </div>
+    </div>
+
+    <!-- PASO 3 -->
+    <div class="step-block">
+      <div class="step-head">
+        <div class="step-num-badge" style="background:rgba(245,158,11,.15);color:var(--warn);border:2px solid var(--warn)">3</div>
+        <div>
+          <div class="step-head-title">Trunk 802.1Q — Uplink etiquetado</div>
+          <div class="step-head-sub">
+            <span class="tag tag-warn">CLI IOS</span>
+            <span class="tag tag-ok">20 pts</span>
+            <span class="tag tag-warn">~10 min</span>
+          </div>
+        </div>
+      </div>
+      <div class="step-body">
+
+        <h4>Secuencia correcta</h4>
+        <pre><code>SW-Core# configure terminal
+SW-Core(config)# interface Gi0/1
+SW-Core(config-if)# switchport mode trunk
+SW-Core(config-if)# switchport trunk allowed vlan 10,20,30
+SW-Core(config-if)# exit
+
+<span class="c-muted">-- Verificación --</span>
+SW-Core# show interfaces trunk</code></pre>
+
+        <h4>Visualización en el canvas</h4>
+        <p>Al configurar el trunk con la herramienta <strong>🔀 Trunk 802.1Q</strong> del canvas o vía CLI, el enlace entre SW-Core y SW-2 cambia de apariencia y aparece la etiqueta del trunk. Aprovechar este momento visual para explicar el encabezado 802.1Q.</p>
+
+        <h4>Diagrama conceptual para pizarra</h4>
+        <pre><code><span class="c-cyan">[ Ethernet Header ][ 802.1Q Tag ][ Payload ][ FCS ]
+                     ├─ TPID: 0x8100 (2B)
+                     ├─ PCP:  3 bits (QoS)
+                     ├─ DEI:  1 bit
+                     └─ VID:  12 bits (0–4094)</span>
+
+<span class="c-muted">VLAN nativa (default: VLAN 1): tráfico SIN etiqueta.</span>
+<span class="c-warn">Riesgo: VLAN hopping si la VLAN nativa no está segregada.</span></code></pre>
+
+        <div class="callout callout-info">
+          <span class="callout-icon">💡</span>
+          <div>
+            <strong>Pregunta de discusión:</strong> ¿Por qué configuramos <code>trunk allowed vlan 10,20,30</code> en vez de dejar todas las VLANs? → Principio de mínimo privilegio: solo las VLANs necesarias reducen el dominio de broadcast y limitan el radio de daño ante un misconfiguration.
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- PASO 4 -->
+    <div class="step-block">
+      <div class="step-head">
+        <div class="step-num-badge" style="background:rgba(239,68,68,.15);color:var(--err);border:2px solid var(--err)">4</div>
+        <div>
+          <div class="step-head-title">STP / RSTP — Prevención de loops L2</div>
+          <div class="step-head-sub">
+            <span class="tag tag-err">CLI IOS</span>
+            <span class="tag tag-ok">20 pts</span>
+            <span class="tag tag-warn">~15 min</span>
+          </div>
+        </div>
+      </div>
+      <div class="step-body">
+
+        <h4>Secuencia correcta</h4>
+        <pre><code>SW-Core# configure terminal
+SW-Core(config)# spanning-tree mode rapid-pvst
+SW-Core(config)# end
+
+<span class="c-muted">-- Verificación (CRÍTICO para unlock) --</span>
+SW-Core# show spanning-tree vlan 10
+
+<span class="c-muted">-- Salida esperada --</span>
+<span class="c-cyan">VLAN0010</span>
+  Spanning tree enabled protocol <span class="c-ok">rstp</span>
+  Root ID  Priority 24586  This bridge is the root
+  ...
+  Interface  Role  Sts   Cost
+  Gi0/3      Altn  <span class="c-err">BLK</span>   4    ← enlace redundante bloqueado</code></pre>
+
+        <h4>Visualización en el canvas</h4>
+        <p>Al ejecutar <code>spanning-tree mode rapid-pvst</code> y el show de verificación, el simulador registra el estado STP. El modal <strong>🌳 STP</strong> muestra el estado de cada puerto, incluyendo cuál enlace quedaría bloqueado en una topología redundante. Preguntar: ¿qué pasaría si hay dos caminos entre SW-Core y SW-2?</p>
+
+        <h4>Conceptos a desarrollar en clase</h4>
+        <table class="doc-table">
+          <thead>
+            <tr><th>Concepto</th><th>Explicación práctica</th><th>Observación en el lab</th></tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><strong>Root Bridge</strong></td>
+              <td>El SW-Core gana porque tiene el menor Bridge ID (prioridad 32768 + MAC más baja)</td>
+              <td><code>This bridge is the root</code> en show spanning-tree</td>
+            </tr>
+            <tr>
+              <td><strong>Root Port</strong></td>
+              <td>Puerto de cada switch no-root con menor costo al Root</td>
+              <td>No visible (SW-Core es Root)</td>
+            </tr>
+            <tr>
+              <td><strong>Blocking</strong></td>
+              <td>Gi0/3 queda en Alternate → no reenvía tramas de datos</td>
+              <td>⊗ BLK en el canvas · Gi0/3 en rojo</td>
+            </tr>
+            <tr>
+              <td><strong>RSTP vs STP</strong></td>
+              <td>RSTP converge en &lt;1s; STP clásico necesita 30–50s</td>
+              <td>Protocol: <code>rstp</code> en la salida show</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <div class="callout callout-err">
+          <span class="callout-icon">🔴</span>
+          <div>
+            <strong>Concepto crítico:</strong> Un loop L2 sin STP genera un <em>broadcast storm</em>. Una sola trama de broadcast se replica infinitamente, saturando toda la red en milisegundos. Demostrar con el modal STP sin RSTP activo (status: <em>⚠ loop!</em>).
+          </div>
+        </div>
+
+        <h4>Error frecuente</h4>
+        <p>El estudiante ejecuta <code>spanning-tree mode rapid-pvst</code> pero no corre <code>show spanning-tree vlan 10</code>. El simulador <strong>requiere el show</strong> como verificación explícita para hacer unlock — igual que en un entorno real donde verificar es parte de la configuración.</p>
+      </div>
+    </div>
+
+    <!-- PASO 5 -->
+    <div class="step-block">
+      <div class="step-head">
+        <div class="step-num-badge" style="background:rgba(167,139,250,.15);color:var(--purple);border:2px solid var(--purple)">5</div>
+        <div>
+          <div class="step-head-title">Port Security — Control de acceso L2</div>
+          <div class="step-head-sub">
+            <span class="tag tag-purple">CLI IOS</span>
+            <span class="tag tag-ok">25 pts</span>
+            <span class="tag tag-warn">~15 min</span>
+          </div>
+        </div>
+      </div>
+      <div class="step-body">
+
+        <h4>Secuencia correcta</h4>
+        <pre><code>SW-Core# configure terminal
+SW-Core(config)# interface Fa0/1
+SW-Core(config-if)# switchport mode access         <span class="c-muted">← debe ser access, no trunk</span>
+SW-Core(config-if)# switchport port-security
+SW-Core(config-if)# switchport port-security maximum 1
+SW-Core(config-if)# switchport port-security violation restrict
+SW-Core(config-if)# end
+
+<span class="c-muted">-- Verificación --</span>
+SW-Core# show port-security
+<span class="c-ok">Fa0/1    1       1        0           restrict</span></code></pre>
+
+        <h4>Unlock trigger</h4>
+        <p>El simulador desbloquea cuando los tres comandos de port-security están configurados: <code>port-security</code> (enable), <code>maximum</code> y <code>violation</code>. Al completarse, el modal <strong>🔒 Port Sec</strong> muestra el estado de violación simulada.</p>
+
+        <h4>Tabla de modos de violación</h4>
+        <table class="doc-table">
+          <thead><tr><th>Modo</th><th>Descarta tráfico</th><th>Contador</th><th>Syslog</th><th>Acción en puerto</th></tr></thead>
+          <tbody>
+            <tr><td><code>protect</code></td><td>✓</td><td>✗</td><td>✗</td><td>Sigue activo (silencioso)</td></tr>
+            <tr><td><code>restrict</code></td><td>✓</td><td>✓</td><td>✓</td><td>Sigue activo</td></tr>
+            <tr><td><code>shutdown</code> <span class="tag tag-err">default</span></td><td>✓</td><td>✓</td><td>✓</td><td>err-disabled → requiere <code>shutdown/no shutdown</code></td></tr>
+          </tbody>
+        </table>
+
+        <div class="callout callout-ok">
+          <span class="callout-icon">🔗</span>
+          <div>
+            <strong>Conexión con Lab 4 (MAC Flooding):</strong> Port Security es la defensa directa contra el ataque MAC Flooding que se explora en Lab 4. Si el estudiante ya completó Lab 4, preguntar: ¿cuántas MACs necesitaría inundar el atacante con <code>maximum 1</code> activo? → Solo 1 MAC extra para desencadenar la violación.
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 5. EVALUACIÓN -->
+  <section>
+    <h2>5 · Criterios de evaluación</h2>
+    <table class="doc-table">
+      <thead>
+        <tr><th>Criterio</th><th>Indicador observable</th><th>Pts</th><th>Rúbrica</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><strong>MAC Learning</strong></td>
+          <td>Tabla CAM con ≥4 entradas, comprende flooding vs forwarding</td>
+          <td style="text-align:center">15</td>
+          <td>0: no ejecuta · 8: ejecuta sin comprender · 15: ejecuta y explica</td>
+        </tr>
+        <tr>
+          <td><strong>VLANs</strong></td>
+          <td>3 VLANs creadas con nombre + puertos asignados</td>
+          <td style="text-align:center">20</td>
+          <td>0: no crea · 10: crea sin asignar puertos · 20: completo</td>
+        </tr>
+        <tr>
+          <td><strong>Trunk 802.1Q</strong></td>
+          <td>Gi0/1 en modo trunk con VLANs 10,20,30 permitidas</td>
+          <td style="text-align:center">20</td>
+          <td>0: no configura · 12: trunk sin allowed vlan · 20: completo</td>
+        </tr>
+        <tr>
+          <td><strong>STP / RSTP</strong></td>
+          <td>rapid-pvst activo, verifica con show, Gi0/3 BLK visible</td>
+          <td style="text-align:center">20</td>
+          <td>0: no configura · 10: activa sin verificar · 20: activa + show</td>
+        </tr>
+        <tr>
+          <td><strong>Port Security</strong></td>
+          <td>port-security en Fa0/1 con maximum y violation</td>
+          <td style="text-align:center">25</td>
+          <td>0: no configura · 15: solo enable · 20: sin violation · 25: completo</td>
+        </tr>
+        <tr style="background:rgba(6,182,212,.06)">
+          <td colspan="2"><strong>TOTAL</strong></td>
+          <td style="text-align:center"><strong>100</strong></td>
+          <td>≥90: Sobresaliente · ≥70: Aprobado · &lt;70: Recuperación</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <div class="callout callout-info" style="margin-top:14px">
+      <span class="callout-icon">📊</span>
+      <div>
+        <strong>Puntuación automática:</strong> El simulador otorga los puntos en el momento en que se ejecuta el unlock de cada paso. La pantalla de finalización muestra el score total con animación. El docente puede pedir al estudiante mostrar la pantalla de completion como evidencia.
+      </div>
+    </div>
+  </section>
+
+  <!-- 6. PREGUNTAS DE DISCUSIÓN -->
+  <section>
+    <h2>6 · Preguntas de discusión</h2>
+    <div class="grid-2">
+      <div>
+        <h3>Durante el laboratorio</h3>
+        <ol>
+          <li>¿Por qué el primer envío de una trama genera flooding y el segundo no?</li>
+          <li>¿Qué problema resuelve la segmentación en VLANs respecto a los dominios de broadcast?</li>
+          <li>Si PC-Admin intenta hacer ping a Srv-Med (VLAN 30), ¿el switch lo reenvía directamente? ¿Por qué?</li>
+          <li>¿Qué diferencia hay entre un puerto en modo <code>access</code> y uno en <code>trunk</code>?</li>
+          <li>¿Por qué el enlace Gi0/3 hacia SW-3 se bloquea y no otro enlace?</li>
+        </ol>
+      </div>
+      <div>
+        <h3>Post-laboratorio / evaluación oral</h3>
+        <ol>
+          <li>Un hospital tiene 500 dispositivos IoT médicos. ¿En qué VLAN los pondrías y por qué los aislarías?</li>
+          <li>¿Cómo afecta una entrada MAC inválida en la tabla CAM a la seguridad de la red?</li>
+          <li>Si el Root Bridge (SW-Core) falla, ¿qué ocurre con el enlace Gi0/3 en BLK?</li>
+          <li>¿Cuál modo de violación de Port Security usarías en una UCI donde no puedes desconectar equipos de soporte vital? Justifica.</li>
+          <li>¿Qué es el VLAN hopping attack y qué configuración de este lab lo previene?</li>
+        </ol>
+      </div>
+    </div>
+  </section>
+
+  <!-- 7. ACTIVIDADES DE EXTENSIÓN -->
+  <section>
+    <h2>7 · Actividades de extensión</h2>
+    <div class="grid-2">
+      <div class="card card-ok">
+        <h4>🟢 Nivel básico — consolidación</h4>
+        <ul>
+          <li>Crear un mapa mental de los 5 pasos del lab con sus comandos CLI</li>
+          <li>Dibujar la topología del lab e indicar en qué VLAN está cada dispositivo</li>
+          <li>Completar la tabla: <em>"Si A quiere hablar con B, ¿el switch reenvía o necesita router?"</em></li>
+        </ul>
+      </div>
+      <div class="card card-warn">
+        <h4>🟡 Nivel intermedio — aplicación</h4>
+        <ul>
+          <li>Investigar: ¿qué es VLAN hopping? ¿Cómo lo previene la configuración de VLAN nativa?</li>
+          <li>Comparar la configuración de Port Security con y sin sticky MACs</li>
+          <li>Calcular el Bridge ID de un switch con prioridad 28672 y MAC <code>AA:BB:CC:DD:EE:FF</code></li>
+        </ul>
+      </div>
+      <div class="card card-err">
+        <h4>🔴 Nivel avanzado — análisis</h4>
+        <ul>
+          <li>Investigar el ataque <em>VLAN Double Tagging</em> y proponer mitigaciones</li>
+          <li>Diseñar una política completa de port security para una clínica con 3 zonas de seguridad</li>
+          <li>Comparar RSTP (802.1w) con MSTP (802.1s) para un entorno multi-VLAN de alta disponibilidad</li>
+        </ul>
+      </div>
+      <div class="card card-purple">
+        <h4>🟣 Conexión con siguientes labs</h4>
+        <ul>
+          <li><strong>Lab 4 (MAC Flooding):</strong> el estudiante ya tiene el conocimiento para configurar port security como defensa real</li>
+          <li><strong>Lab 5 (ARP Spoofing):</strong> DHCP Snooping + DAI se habilitan sobre la base de VLANs configuradas aquí</li>
+          <li><strong>Proyecto integrador:</strong> diseñar la red completa de la Clínica San Rafael uniendo labs 1–6</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <!-- 8. SOLUCIÓN DE PROBLEMAS -->
+  <section>
+    <h2>8 · Solución de problemas comunes</h2>
+    <table class="doc-table">
+      <thead><tr><th>Síntoma</th><th>Causa probable</th><th>Solución para el docente</th></tr></thead>
+      <tbody>
+        <tr>
+          <td>El botón "Siguiente" permanece bloqueado</td>
+          <td>No se ejecutó el comando gatillo del paso</td>
+          <td>Verificar el modal ⚡ Configurar → el checklist de progreso indica qué falta</td>
+        </tr>
+        <tr>
+          <td>La CLI no reconoce el comando de VLAN</td>
+          <td>El estudiante está en modo <code>user</code> o <code>priv</code>, no en <code>conf</code></td>
+          <td>Revisar el prompt: debe decir <code>SW-Core(config)#</code> antes de <code>vlan 10</code></td>
+        </tr>
+        <tr>
+          <td>El trunk no aparece visual en el canvas</td>
+          <td>Solo se ejecutó <code>sw mode trunk</code> sin el <code>allowed vlan</code></td>
+          <td>Ambos comandos son necesarios — el modal ⚡ muestra el checkmark de cada uno</td>
+        </tr>
+        <tr>
+          <td>STP no bloquea el enlace Gi0/3</td>
+          <td>Se olvidó ejecutar <code>show spanning-tree vlan 10</code></td>
+          <td>El simulador requiere la verificación explícita como en producción</td>
+        </tr>
+        <tr>
+          <td>Port security no hace unlock</td>
+          <td>Falta configurar <code>violation</code> (el tercer comando)</td>
+          <td>El modal 🔒 Port Sec muestra el estado de cada sub-comando</td>
+        </tr>
+        <tr>
+          <td>El canvas no responde al arrastre</td>
+          <td>Resolución de pantalla &lt; 1024px o zoom del navegador &gt; 125%</td>
+          <td>Reducir zoom del navegador a 100% (Ctrl+0)</td>
+        </tr>
+        <tr>
+          <td>El simulador no avanza tras recargar la página</td>
+          <td>El estado es en memoria — no persiste en localStorage</td>
+          <td>Comportamiento esperado: los labs están diseñados para completarse en una sesión</td>
+        </tr>
+      </tbody>
+    </table>
+  </section>
+
+  <!-- 9. GLOSARIO -->
+  <section>
+    <h2>9 · Glosario técnico de referencia</h2>
+    <div class="grid-2">
+      <div>
+        <dl style="font-size:12px">
+          <dt style="color:var(--accent);font-weight:700;margin-top:10px">Tabla CAM</dt>
+          <dd style="color:var(--text);margin-left:12px;line-height:1.7">Content-Addressable Memory. Base de datos del switch que mapea MAC → Puerto → VLAN. Búsqueda O(1) gracias a la memoria asociativa.</dd>
+          <dt style="color:var(--accent);font-weight:700;margin-top:10px">VLAN (IEEE 802.1Q)</dt>
+          <dd style="color:var(--text);margin-left:12px;line-height:1.7">Virtual LAN. Segmentación lógica L2 que crea dominios de broadcast independientes sobre la misma infraestructura física.</dd>
+          <dt style="color:var(--accent);font-weight:700;margin-top:10px">Trunk Port</dt>
+          <dd style="color:var(--text);margin-left:12px;line-height:1.7">Puerto configurado para transportar múltiples VLANs etiquetadas con cabecera 802.1Q. Usualmente conecta switches entre sí o con routers.</dd>
+          <dt style="color:var(--accent);font-weight:700;margin-top:10px">VLAN Nativa</dt>
+          <dd style="color:var(--text);margin-left:12px;line-height:1.7">VLAN cuyos frames no llevan etiqueta 802.1Q en el trunk. Por defecto VLAN 1. Vector de VLAN hopping si no se configura correctamente.</dd>
+        </dl>
+      </div>
+      <div>
+        <dl style="font-size:12px">
+          <dt style="color:var(--accent);font-weight:700;margin-top:10px">STP / RSTP</dt>
+          <dd style="color:var(--text);margin-left:12px;line-height:1.7">Spanning Tree Protocol (802.1D) / Rapid STP (802.1w). Protocolo L2 que previene loops bloqueando puertos redundantes. RSTP converge en &lt;1s.</dd>
+          <dt style="color:var(--accent);font-weight:700;margin-top:10px">Root Bridge</dt>
+          <dd style="color:var(--text);margin-left:12px;line-height:1.7">Switch elegido como raíz del árbol STP. Todos los cálculos de costo de ruta parten de él. Elegido por menor Bridge ID (prioridad + MAC).</dd>
+          <dt style="color:var(--accent);font-weight:700;margin-top:10px">Port Security</dt>
+          <dd style="color:var(--text);margin-left:12px;line-height:1.7">Feature Cisco que limita MACs por puerto. Mitiga MAC flooding y acceso físico no autorizado. Modos: protect, restrict, shutdown.</dd>
+          <dt style="color:var(--accent);font-weight:700;margin-top:10px">err-disabled</dt>
+          <dd style="color:var(--text);margin-left:12px;line-height:1.7">Estado en que el switch deshabilita automáticamente un puerto por violación de seguridad u otro evento. Requiere <code>shutdown</code> + <code>no shutdown</code> para recuperar.</dd>
+        </dl>
+      </div>
+    </div>
+  </section>
+
+  <!-- FOOTER -->
+  <div style="border-top:1px solid var(--border);margin-top:20px;padding-top:20px;display:flex;align-items:center;justify-content:space-between;font-size:11px;color:var(--muted)">
+    <div>Clínica San Rafael · Simuladores de Redes · Lab 6 / 6</div>
+    <div style="display:flex;gap:16px">
+      <a href="index.html" style="color:var(--accent);text-decoration:none">← Abrir simulador</a>
+      <a href="../lab5/index.html" style="color:var(--muted);text-decoration:none">Lab 5</a>
+      <a href="../lab1/index.html" style="color:var(--muted);text-decoration:none">Lab 1 →</a>
+    </div>
+  </div>
+
+</div>
+</body>
+</html>
