@@ -1,0 +1,716 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Guía Docente — Lab 2: Router-on-a-Stick · Inter-VLAN Routing</title>
+<style>
+  :root {
+    --bg:#0f1117;--panel:#161b27;--card:#1e2535;--border:#2a3347;
+    --accent:#f59e0b;--ok:#10b981;--warn:#f59e0b;--err:#ef4444;
+    --purple:#a78bfa;--text:#e2e8f0;--muted:#64748b;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{background:var(--bg);color:var(--text);font-family:'Segoe UI',system-ui,sans-serif;line-height:1.7}
+
+  .doc-header{background:var(--panel);border-bottom:2px solid var(--accent);padding:28px 40px;display:flex;align-items:flex-start;gap:20px}
+  .doc-badge{background:rgba(245,158,11,.15);border:1px solid var(--accent);color:var(--accent);font-size:10px;font-weight:700;padding:3px 12px;border-radius:20px;white-space:nowrap;margin-top:4px}
+  .doc-title{font-size:26px;font-weight:800;color:var(--accent);line-height:1.2}
+  .doc-sub{font-size:13px;color:var(--muted);margin-top:4px}
+  .doc-meta{margin-left:auto;text-align:right;font-size:11px;color:var(--muted);line-height:2}
+  .doc-meta strong{color:var(--text)}
+  .back-link{display:inline-flex;align-items:center;gap:6px;font-size:11px;color:var(--muted);text-decoration:none;margin-top:10px;transition:color .15s}
+  .back-link:hover{color:var(--accent)}
+
+  .doc-wrap{max-width:960px;margin:0 auto;padding:32px 24px}
+  section{margin-bottom:36px}
+  h2{font-size:15px;font-weight:700;color:var(--accent);text-transform:uppercase;letter-spacing:1.5px;margin-bottom:14px;display:flex;align-items:center;gap:10px}
+  h2::after{content:'';flex:1;height:1px;background:var(--border)}
+  h3{font-size:14px;font-weight:700;color:var(--text);margin-bottom:8px;margin-top:16px}
+  h4{font-size:12px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.8px;margin-bottom:6px;margin-top:12px}
+  p{font-size:13px;color:var(--text);margin-bottom:10px}
+  ul,ol{padding-left:20px;margin-bottom:10px}
+  li{font-size:13px;color:var(--text);padding:2px 0}
+  li strong{color:var(--accent)}
+  code{background:var(--card);border:1px solid var(--border);border-radius:4px;padding:1px 7px;font-family:'Courier New',monospace;font-size:11px;color:var(--warn)}
+  pre{background:var(--card);border:1px solid var(--border);border-radius:8px;padding:14px 16px;overflow-x:auto;margin:10px 0}
+  pre code{background:none;border:none;padding:0;font-size:12px;color:#e2e8f0;display:block;line-height:1.9}
+  pre .c-ok{color:#10b981}
+  pre .c-cyan{color:#06b6d4}
+  pre .c-warn{color:#f59e0b}
+  pre .c-err{color:#ef4444}
+  pre .c-muted{color:#64748b}
+
+  .card{background:var(--panel);border:1px solid var(--border);border-radius:10px;padding:16px 20px;margin-bottom:12px}
+  .card-accent{border-color:var(--accent)}
+  .card-warn{border-color:var(--warn)}
+  .card-ok{border-color:var(--ok)}
+  .card-err{border-color:var(--err)}
+  .card-purple{border-color:var(--purple)}
+
+  .step-block{background:var(--panel);border:1px solid var(--border);border-radius:10px;overflow:hidden;margin-bottom:16px}
+  .step-head{display:flex;align-items:center;gap:12px;padding:12px 18px;border-bottom:1px solid var(--border);background:var(--card)}
+  .step-num-badge{width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:800;flex-shrink:0}
+  .step-head-title{font-size:13px;font-weight:700}
+  .step-head-sub{font-size:11px;color:var(--muted);margin-top:1px}
+  .step-body{padding:16px 18px}
+  .step-body > *:last-child{margin-bottom:0}
+
+  .tag{display:inline-block;font-size:9px;font-weight:700;padding:2px 8px;border-radius:10px;text-transform:uppercase;letter-spacing:.5px;margin-right:4px;vertical-align:middle}
+  .tag-amber{background:rgba(245,158,11,.15);color:var(--accent);border:1px solid var(--accent)}
+  .tag-ok{background:rgba(16,185,129,.15);color:var(--ok);border:1px solid var(--ok)}
+  .tag-warn{background:rgba(245,158,11,.15);color:var(--warn);border:1px solid var(--warn)}
+  .tag-err{background:rgba(239,68,68,.15);color:var(--err);border:1px solid var(--err)}
+  .tag-purple{background:rgba(167,139,250,.15);color:var(--purple);border:1px solid var(--purple)}
+
+  .doc-table{width:100%;border-collapse:collapse;font-size:12px;margin:10px 0}
+  .doc-table th{background:var(--card);color:var(--muted);text-align:left;padding:8px 12px;border:1px solid var(--border);font-size:11px;text-transform:uppercase;letter-spacing:.5px}
+  .doc-table td{padding:8px 12px;border:1px solid var(--border);vertical-align:top;color:var(--text)}
+  .doc-table tr:nth-child(even) td{background:rgba(30,37,53,.4)}
+
+  .callout{border-radius:8px;padding:12px 16px;margin:12px 0;font-size:12px;display:flex;gap:12px;align-items:flex-start;line-height:1.7}
+  .callout-icon{font-size:18px;flex-shrink:0;margin-top:1px}
+  .callout-info{background:rgba(245,158,11,.08);border:1px solid rgba(245,158,11,.3);color:var(--text)}
+  .callout-warn{background:rgba(245,158,11,.08);border:1px solid rgba(245,158,11,.3);color:var(--text)}
+  .callout-ok{background:rgba(16,185,129,.08);border:1px solid rgba(16,185,129,.3);color:var(--text)}
+  .callout-err{background:rgba(239,68,68,.08);border:1px solid rgba(239,68,68,.3);color:var(--text)}
+
+  .grid-2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+  .grid-3{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+  @media(max-width:640px){.grid-2,.grid-3{grid-template-columns:1fr}}
+
+  @media print{
+    body{background:#fff;color:#111}
+    .doc-header{background:#f8fafc;border-color:#d97706}
+    .doc-title{color:#d97706}.doc-sub,.doc-meta,.back-link{color:#555}
+    .card,.step-block,.step-head{background:#f8fafc;border-color:#ddd}
+    code{background:#f1f5f9;border-color:#ddd;color:#b45309}
+    pre{background:#f1f5f9;border-color:#ddd}
+    h2::after{background:#ddd}
+    .callout-info,.callout-warn{background:#fff8e1;border-color:#ffe082}
+    .callout-ok{background:#e8f5e9;border-color:#a5d6a7}
+    .callout-err{background:#fce4ec;border-color:#f48fb1}
+    .tag-amber,.tag-warn{background:#fff8e1;color:#b45309;border-color:#ffe082}
+    .tag-ok{background:#e8f5e9;color:#059669;border-color:#a5d6a7}
+    .tag-err{background:#fce4ec;color:#dc2626;border-color:#f48fb1}
+    .tag-purple{background:#ede9fe;color:#7c3aed;border-color:#c4b5fd}
+  }
+</style>
+</head>
+<body>
+
+<!-- HEADER -->
+<div class="doc-header">
+  <div>
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">
+      <span class="doc-badge">GUÍA DOCENTE</span>
+      <span class="doc-badge" style="border-color:var(--purple);color:var(--purple);background:rgba(167,139,250,.12)">LAB 2</span>
+    </div>
+    <div class="doc-title">Router-on-a-Stick · Inter-VLAN Routing</div>
+    <div class="doc-sub">802.1Q Trunk · Sub-interfaces · Encapsulation dot1Q · Routing entre VLANs</div>
+    <a href="index.html" class="back-link">← Abrir simulador</a>
+  </div>
+  <div class="doc-meta">
+    <div><strong>Módulo:</strong> 04 Ciberseguridad / Redes</div>
+    <div><strong>Duración estimada:</strong> 45–75 min</div>
+    <div><strong>Nivel:</strong> Básico–Intermedio</div>
+    <div><strong>Prerrequisito:</strong> Lab 1 (VLANs)</div>
+    <div><strong>Máx. puntuación:</strong> 100 pts</div>
+    <div style="margin-top:6px"><strong>Herramienta:</strong> HTML + Cisco IOS simulado</div>
+  </div>
+</div>
+
+<div class="doc-wrap">
+
+  <!-- 1. DESCRIPCIÓN -->
+  <section>
+    <h2>1 · Descripción general</h2>
+    <p>
+      El laboratorio simula la configuración de <em>Router-on-a-Stick</em> en la red de la <strong>Clínica San Rafael</strong>. El estudiante construye la topología arrastrando dispositivos a un canvas libre, conecta los elementos, asigna VLANs y configura las sub-interfaces del router mediante una terminal Cisco IOS interactiva para habilitar el routing entre tres VLANs hospitalarias.
+    </p>
+    <div class="grid-2">
+      <div class="card card-accent">
+        <h4>Escenario</h4>
+        <p style="margin:0">El departamento de TI de la Clínica San Rafael necesita que el personal de Administración (VLAN 10), Médicos (VLAN 20) y Enfermería (VLAN 30) puedan comunicarse entre sí, pero manteniéndose segmentados. Solo hay un enlace físico disponible entre el switch y el router.</p>
+      </div>
+      <div class="card">
+        <h4>Tecnologías simuladas</h4>
+        <ul style="margin:0">
+          <li>Cisco IOS 15.1 (CLI interactivo)</li>
+          <li>IEEE 802.1Q trunk encapsulation</li>
+          <li>Sub-interfaces Cisco (fa0/0.N)</li>
+          <li>Inter-VLAN routing a través de un único enlace</li>
+          <li>Ping test de verificación entre VLANs</li>
+        </ul>
+      </div>
+    </div>
+    <div class="callout callout-info" style="margin-top:8px">
+      <span class="callout-icon">🖱️</span>
+      <div>
+        <strong>Interfaz drag-and-drop:</strong> A diferencia de laboratorios con topología fija, aquí el estudiante <strong>construye la red desde cero</strong> arrastrando dispositivos del panel lateral al canvas. El lab valida los tipos de nodos y conexiones requeridas, no posiciones exactas.
+      </div>
+    </div>
+  </section>
+
+  <!-- 2. OBJETIVOS -->
+  <section>
+    <h2>2 · Objetivos de aprendizaje</h2>
+    <p>Al finalizar el laboratorio, el estudiante será capaz de:</p>
+    <div class="grid-2">
+      <div>
+        <h4>Conceptuales</h4>
+        <ul>
+          <li>Explicar qué es y por qué se usa <strong>Router-on-a-Stick</strong></li>
+          <li>Describir la estructura de una trama con etiqueta <strong>802.1Q</strong></li>
+          <li>Distinguir entre puerto de <strong>acceso</strong> y puerto <strong>trunk</strong></li>
+          <li>Explicar cómo el router usa sub-interfaces para routing inter-VLAN</li>
+          <li>Identificar las ventajas y limitaciones de RoaS vs switches L3</li>
+        </ul>
+      </div>
+      <div>
+        <h4>Procedimentales</h4>
+        <ul>
+          <li>Construir una topología LAN desde cero (drag-and-drop)</li>
+          <li>Configurar un trunk 802.1Q entre switch y router</li>
+          <li>Crear sub-interfaces con <code>encapsulation dot1Q</code></li>
+          <li>Asignar IPs gateway a cada sub-interfaz</li>
+          <li>Verificar conectividad inter-VLAN con ping test</li>
+        </ul>
+      </div>
+    </div>
+    <div class="callout callout-ok" style="margin-top:14px">
+      <span class="callout-icon">🎯</span>
+      <div>
+        <strong>Conexión curricular:</strong> Este lab construye sobre Lab 1 (VLANs conceptuales en un switch) añadiendo la capa de routing. Es prerrequisito directo de Lab 3 (Firewall & ACLs) y Lab 6 (Switch L2 avanzado), y establece la base para entender la segmentación de red en entornos con un único router de borde.
+      </div>
+    </div>
+  </section>
+
+  <!-- 3. PRERREQUISITOS -->
+  <section>
+    <h2>3 · Prerrequisitos y preparación</h2>
+    <div class="grid-3">
+      <div class="card">
+        <h4>Del estudiante</h4>
+        <ul>
+          <li>Lab 1 completado (VLANs y segmentación L2)</li>
+          <li>Conocimiento de capas OSI 1–3</li>
+          <li>Concepto básico de enrutamiento IP</li>
+          <li>Familiaridad con subnetting básico</li>
+        </ul>
+      </div>
+      <div class="card">
+        <h4>Conceptos clave previos</h4>
+        <ul>
+          <li>Diferencia switch vs router</li>
+          <li>Qué es una VLAN y su ID (1–4094)</li>
+          <li>Dominio de broadcast y su limitación</li>
+          <li>Notación CIDR básica (/24)</li>
+        </ul>
+      </div>
+      <div class="card">
+        <h4>Técnico</h4>
+        <ul>
+          <li>Navegador: Chrome 90+, Firefox 88+</li>
+          <li>Sin instalaciones requeridas</li>
+          <li>Sin conexión a internet necesaria</li>
+          <li>Resolución mínima: 1024 × 768</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <!-- 4. PLAN DE RED -->
+  <section>
+    <h2>4 · Plan de red del laboratorio</h2>
+    <table class="doc-table">
+      <thead>
+        <tr><th>VLAN</th><th>Nombre</th><th>Sub-interfaz</th><th>Red</th><th>Gateway (Router)</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><span class="tag tag-amber">VLAN 10</span></td>
+          <td>Administración</td>
+          <td><code>fa0/0.10</code></td>
+          <td><code>10.10.10.0/24</code></td>
+          <td><code>10.10.10.1</code></td>
+        </tr>
+        <tr>
+          <td><span class="tag tag-ok">VLAN 20</span></td>
+          <td>Médicos</td>
+          <td><code>fa0/0.20</code></td>
+          <td><code>10.10.20.0/24</code></td>
+          <td><code>10.10.20.1</code></td>
+        </tr>
+        <tr>
+          <td><span class="tag tag-warn">VLAN 30</span></td>
+          <td>Enfermería</td>
+          <td><code>fa0/0.30</code></td>
+          <td><code>10.10.30.0/24</code></td>
+          <td><code>10.10.30.1</code></td>
+        </tr>
+      </tbody>
+    </table>
+    <div class="callout callout-info">
+      <span class="callout-icon">💡</span>
+      <div>
+        El enlace trunk entre el switch y el router transporta las 3 VLANs etiquetadas (802.1Q). El router desencapsula cada trama, consulta su tabla de routing y la reencapsula para la VLAN destino — todo en el mismo enlace físico.
+      </div>
+    </div>
+  </section>
+
+  <!-- 5. GUÍA POR PASO -->
+  <section>
+    <h2>5 · Guía paso a paso</h2>
+
+    <!-- PASO 1 -->
+    <div class="step-block">
+      <div class="step-head">
+        <div class="step-num-badge" style="background:rgba(245,158,11,.15);color:var(--accent);border:2px solid var(--accent)">1</div>
+        <div>
+          <div class="step-head-title">Topología Base — Construir desde cero</div>
+          <div class="step-head-sub">
+            <span class="tag tag-amber">Drag-and-drop</span>
+            <span class="tag tag-ok">15 pts</span>
+            <span class="tag tag-warn">~5 min</span>
+          </div>
+        </div>
+      </div>
+      <div class="step-body">
+        <h4>Qué hace el estudiante</h4>
+        <p>Arrastra desde el panel lateral los dispositivos necesarios: <strong>1 Router</strong>, <strong>1 Switch L2</strong> y al menos <strong>3 dispositivos finales</strong> (PCs, laptops o servidores). Los nodos se posicionan libremente en el canvas en blanco.</p>
+
+        <h4>Requisito de unlock</h4>
+        <ul>
+          <li>Mínimo 1 nodo de tipo <strong>router</strong> en el canvas</li>
+          <li>Mínimo 1 nodo de tipo <strong>switch</strong> en el canvas</li>
+          <li>Mínimo <strong>3 dispositivos finales</strong> (PC, laptop o servidor)</li>
+        </ul>
+
+        <h4>Puntos clave para reforzar</h4>
+        <ul>
+          <li>El router necesita <strong>un solo puerto físico</strong> — la magia de RoaS está en la configuración lógica (sub-interfaces)</li>
+          <li>Preguntar: ¿por qué no necesitamos un router por VLAN? → Las sub-interfaces son interfaces lógicas sobre el mismo puerto físico</li>
+          <li>El switch no necesita configuración especial en este lab (lo verán en Lab 6), aquí el foco es el router</li>
+        </ul>
+
+        <div class="callout callout-warn">
+          <span class="callout-icon">⚠️</span>
+          <div>
+            <strong>Error frecuente:</strong> El estudiante arrastra solo 2 PCs. El botón "Verificar Paso" mostrará el error <em>"Necesitas al menos 3 PCs/dispositivos finales"</em>. Recordar que cada VLAN necesita al menos un host representativo.
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- PASO 2 -->
+    <div class="step-block">
+      <div class="step-head">
+        <div class="step-num-badge" style="background:rgba(16,185,129,.15);color:var(--ok);border:2px solid var(--ok)">2</div>
+        <div>
+          <div class="step-head-title">Conexiones — Trunk 802.1Q</div>
+          <div class="step-head-sub">
+            <span class="tag tag-ok">Canvas</span>
+            <span class="tag tag-ok">20 pts</span>
+            <span class="tag tag-warn">~8 min</span>
+          </div>
+        </div>
+      </div>
+      <div class="step-body">
+        <h4>Qué hace el estudiante</h4>
+        <p>Usa la herramienta <strong>🔗 Conectar</strong> para unir los PCs al switch (enlaces de acceso). Luego activa la herramienta <strong>🔀 Trunk 802.1Q</strong> para crear el enlace trunk entre el switch y el router. El enlace trunk se visualiza distinto (línea doble o etiqueta).</p>
+
+        <h4>Requisito de unlock</h4>
+        <ul>
+          <li>Todos los dispositivos finales deben tener al menos un enlace</li>
+          <li>Debe existir exactamente <strong>un enlace trunk</strong> entre un switch y un router</li>
+        </ul>
+
+        <h4>Diagrama objetivo</h4>
+        <pre><code><span class="c-warn">PC-Admin</span> ──── [Switch L2] ════════ [Router]
+<span class="c-ok">PC-Medico</span> ───┘   access          trunk 802.1Q
+<span class="c-muted">PC-Enfer</span> ───┘   (sin tag)       (etiqueta VLAN en cada trama)</code></pre>
+
+        <div class="callout callout-info">
+          <span class="callout-icon">💡</span>
+          <div>
+            <strong>Pregunta de discusión:</strong> ¿Por qué los puertos de acceso no llevan etiqueta 802.1Q? → Los dispositivos finales (PCs, impresoras) no entienden el encabezado 802.1Q. El switch añade y quita la etiqueta de forma transparente.
+          </div>
+        </div>
+
+        <div class="callout callout-warn">
+          <span class="callout-icon">⚠️</span>
+          <div>
+            <strong>Error frecuente:</strong> El estudiante conecta el switch al router con un enlace normal (no trunk). El simulador mostrará <em>"Crea un enlace Trunk 802.1Q entre el Switch y el Router"</em>. Debe usar la herramienta de Trunk explícitamente.
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- PASO 3 -->
+    <div class="step-block">
+      <div class="step-head">
+        <div class="step-num-badge" style="background:rgba(245,158,11,.15);color:var(--accent);border:2px solid var(--accent)">3</div>
+        <div>
+          <div class="step-head-title">Asignación de VLANs — Segmentación L2</div>
+          <div class="step-head-sub">
+            <span class="tag tag-amber">Drag badges</span>
+            <span class="tag tag-ok">15 pts</span>
+            <span class="tag tag-warn">~5 min</span>
+          </div>
+        </div>
+      </div>
+      <div class="step-body">
+        <h4>Qué hace el estudiante</h4>
+        <p>Arrastra las etiquetas de VLAN del panel sobre los dispositivos finales: <strong>VLAN 10</strong> (azul) al PC de Administración, <strong>VLAN 20</strong> (verde) al PC de Médicos, <strong>VLAN 30</strong> (ámbar) al PC de Enfermería. Cada nodo muestra una insignia con el número de VLAN.</p>
+
+        <h4>Requisito de unlock</h4>
+        <ul>
+          <li>Las 3 VLANs (10, 20 y 30) deben estar asignadas a al menos un dispositivo cada una</li>
+        </ul>
+
+        <h4>Puntos clave</h4>
+        <ul>
+          <li>Un dispositivo final solo puede tener <strong>una VLAN</strong> — los puertos de acceso pertenecen a una única VLAN</li>
+          <li>El switch conoce la VLAN de cada puerto; el router aún no — eso se configura en el paso 4</li>
+          <li>Las VLANs son segmentación <em>lógica</em>: dos PCs en VLANs distintas no pueden comunicarse directamente aunque estén en el mismo switch físico</li>
+        </ul>
+
+        <div class="callout callout-ok">
+          <span class="callout-icon">🎨</span>
+          <div>
+            <strong>Visualización:</strong> Cuando se asigna una VLAN, la insignia del dispositivo cambia al color de esa VLAN. Usar este momento para reforzar que el color representa el dominio de broadcast al que pertenece el host.
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- PASO 4 -->
+    <div class="step-block">
+      <div class="step-head">
+        <div class="step-num-badge" style="background:rgba(167,139,250,.15);color:var(--purple);border:2px solid var(--purple)">4</div>
+        <div>
+          <div class="step-head-title">Sub-interfaces del Router — CLI Cisco IOS</div>
+          <div class="step-head-sub">
+            <span class="tag tag-purple">CLI IOS</span>
+            <span class="tag tag-ok">30 pts</span>
+            <span class="tag tag-warn">~20 min</span>
+          </div>
+        </div>
+      </div>
+      <div class="step-body">
+        <h4>Secuencia correcta de comandos</h4>
+        <pre><code><span class="c-muted">-- Entrar al modo de configuración --</span>
+Router&gt; enable
+Router# configure terminal
+
+<span class="c-muted">-- Sub-interfaz para VLAN 10 (Administración) --</span>
+Router(config)# interface fa0/0.10
+Router(config-subif)# encapsulation dot1Q 10
+Router(config-subif)# ip address 10.10.10.1 255.255.255.0
+Router(config-subif)# no shutdown
+Router(config-subif)# exit
+
+<span class="c-muted">-- Sub-interfaz para VLAN 20 (Médicos) --</span>
+Router(config)# interface fa0/0.20
+Router(config-subif)# encapsulation dot1Q 20
+Router(config-subif)# ip address 10.10.20.1 255.255.255.0
+Router(config-subif)# no shutdown
+Router(config-subif)# exit
+
+<span class="c-muted">-- Sub-interfaz para VLAN 30 (Enfermería) --</span>
+Router(config)# interface fa0/0.30
+Router(config-subif)# encapsulation dot1Q 30
+Router(config-subif)# ip address 10.10.30.1 255.255.255.0
+Router(config-subif)# no shutdown
+Router(config-subif)# exit
+
+<span class="c-muted">-- Verificación desde conf mode (prefijo "do") --</span>
+Router(config)# do show ip interface brief
+<span class="c-ok">Interface          IP-Address       OK? Method Status
+fa0/0.10           10.10.10.1       YES  manual up   up
+fa0/0.20           10.10.20.1       YES  manual up   up
+fa0/0.30           10.10.30.1       YES  manual up   up</span>
+
+<span class="c-muted">-- O bien, salir a modo exec y verificar --</span>
+Router(config)# end
+Router# show ip interface brief</code></pre>
+
+        <h4>Requisito de unlock</h4>
+        <p>Las 3 sub-interfaces deben tener: <code>encapsulation dot1Q</code> configurado, dirección IP asignada y estado <code>no shutdown</code> (active). El modal CLI muestra el estado de cada sub-interfaz en tiempo real.</p>
+
+        <h4>Conceptos a desarrollar en clase</h4>
+        <table class="doc-table">
+          <thead>
+            <tr><th>Comando</th><th>Función</th><th>Analogía</th></tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><code>interface fa0/0.10</code></td>
+              <td>Crea/selecciona sub-interfaz lógica sobre fa0/0</td>
+              <td>Como crear un carril exclusivo sobre la misma autopista</td>
+            </tr>
+            <tr>
+              <td><code>encapsulation dot1Q 10</code></td>
+              <td>Asocia la sub-interfaz a la VLAN 10; el router procesará tramas con tag VID=10</td>
+              <td>Asignar una etiqueta de identificación a cada carril</td>
+            </tr>
+            <tr>
+              <td><code>ip address 10.10.10.1</code></td>
+              <td>Define el gateway de la VLAN 10; los hosts usarán esta IP como default gateway</td>
+              <td>Poner un portero en la entrada de cada carril</td>
+            </tr>
+            <tr>
+              <td><code>no shutdown</code></td>
+              <td>Activa la sub-interfaz (por defecto están administrativamente down)</td>
+              <td>Abrir la barrera del carril</td>
+            </tr>
+            <tr>
+              <td><code>do show ip interface brief</code></td>
+              <td>Ejecuta un comando exec desde dentro del modo config/subif sin salir. Prefijo <code>do</code> estándar Cisco IOS.</td>
+              <td>Asomarse por una ventana sin salir de la sala</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <div class="callout callout-err">
+          <span class="callout-icon">❌</span>
+          <div>
+            <strong>Error crítico frecuente:</strong> El estudiante configura <code>ip address</code> antes de <code>encapsulation dot1Q</code>. El CLI mostrará <em>"Configure encapsulation primero."</em>. Explicar que el router necesita saber qué VLAN procesar <em>antes</em> de asignar una IP a ese segmento.
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- PASO 5 -->
+    <div class="step-block">
+      <div class="step-head">
+        <div class="step-num-badge" style="background:rgba(16,185,129,.15);color:var(--ok);border:2px solid var(--ok)">5</div>
+        <div>
+          <div class="step-head-title">Verificación — Ping Test Inter-VLAN</div>
+          <div class="step-head-sub">
+            <span class="tag tag-ok">Simulación</span>
+            <span class="tag tag-ok">20 pts</span>
+            <span class="tag tag-warn">~5 min</span>
+          </div>
+        </div>
+      </div>
+      <div class="step-body">
+        <h4>Qué hace el estudiante</h4>
+        <p>Abre el modal <strong>🏓 Ping Test</strong> (botón en la barra de herramientas) y hace clic en <em>Ejecutar Ping Test</em>. El simulador verifica que las 3 sub-interfaces estén configuradas y activas, y que exista el trunk. Muestra el resultado de conectividad entre cada par de VLANs.</p>
+
+        <h4>Resultado esperado</h4>
+        <pre><code><span class="c-muted">Verificando routing inter-VLAN...</span>
+
+VLAN10 → VLAN20: <span class="c-ok">REACH  (via fa0/0.20, gw 10.10.20.1)</span>
+VLAN10 → VLAN30: <span class="c-ok">REACH  (via fa0/0.30, gw 10.10.30.1)</span>
+VLAN20 → VLAN30: <span class="c-ok">REACH  (via fa0/0.30, gw 10.10.30.1)</span>
+
+<span class="c-ok">✓ Routing inter-VLAN: OK — Las 3 VLANs se comunican a través del router</span></code></pre>
+
+        <h4>Pregunta de verificación</h4>
+        <p class="callout callout-info"><span class="callout-icon">❓</span><div>¿Por qué un ping de VLAN 10 a VLAN 20 pasa <em>dos veces</em> por el enlace trunk? → La trama va del host al switch (sin tag), el switch añade tag VLAN 10 y la envía al router; el router la procesa, crea una nueva trama con tag VLAN 20 y la devuelve al switch por el mismo enlace trunk. El switch quita el tag y la entrega al destino.</div></p>
+
+        <div class="callout callout-warn">
+          <span class="callout-icon">⚠️</span>
+          <div>
+            <strong>Limitación de RoaS para discutir:</strong> Todo el tráfico inter-VLAN pasa por el mismo enlace físico. En redes con alto tráfico esto crea un cuello de botella. La solución es un <em>switch de capa 3</em> con routing integrado — tema de Lab 6.
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 6. EVALUACIÓN -->
+  <section>
+    <h2>6 · Criterios de evaluación</h2>
+    <table class="doc-table">
+      <thead>
+        <tr><th>Criterio</th><th>Indicador observable</th><th>Pts</th><th>Rúbrica</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><strong>Topología correcta</strong></td>
+          <td>Router + Switch + ≥3 dispositivos finales en canvas</td>
+          <td style="text-align:center">15</td>
+          <td>0: canvas vacío · 8: falta tipo de nodo · 15: completo</td>
+        </tr>
+        <tr>
+          <td><strong>Trunk 802.1Q</strong></td>
+          <td>Enlace trunk entre switch y router; PCs conectados al switch</td>
+          <td style="text-align:center">20</td>
+          <td>0: sin conexiones · 10: solo access links · 20: trunk correcto</td>
+        </tr>
+        <tr>
+          <td><strong>Asignación VLANs</strong></td>
+          <td>VLANs 10, 20 y 30 asignadas a hosts distintos</td>
+          <td style="text-align:center">15</td>
+          <td>0: sin VLANs · 8: solo 1–2 VLANs · 15: las 3 asignadas</td>
+        </tr>
+        <tr>
+          <td><strong>CLI sub-interfaces</strong></td>
+          <td>fa0/0.10, .20, .30 con encap + IP + no shutdown</td>
+          <td style="text-align:center">30</td>
+          <td>0: sin config · 10: 1 subif · 20: 2 subifs · 30: 3 completas</td>
+        </tr>
+        <tr>
+          <td><strong>Ping Test</strong></td>
+          <td>Test ejecutado y routing inter-VLAN verificado</td>
+          <td style="text-align:center">20</td>
+          <td>0: no ejecuta · 10: ejecuta con errores · 20: OK completo</td>
+        </tr>
+        <tr style="background:rgba(245,158,11,.06)">
+          <td colspan="2"><strong>TOTAL</strong></td>
+          <td style="text-align:center"><strong>100</strong></td>
+          <td>≥90: Sobresaliente · ≥70: Aprobado · &lt;70: Recuperación</td>
+        </tr>
+      </tbody>
+    </table>
+  </section>
+
+  <!-- 7. PREGUNTAS DE DISCUSIÓN -->
+  <section>
+    <h2>7 · Preguntas de discusión</h2>
+    <div class="grid-2">
+      <div>
+        <h3>Durante el laboratorio</h3>
+        <ol>
+          <li>¿Por qué usamos un solo enlace físico y no uno por VLAN?</li>
+          <li>¿Qué diferencia hay entre <code>fa0/0</code> y <code>fa0/0.10</code>?</li>
+          <li>Si no configuramos <code>no shutdown</code>, ¿puede funcionar el routing? ¿Por qué?</li>
+          <li>¿Puede un dispositivo final tener dos VLANs asignadas? ¿Cuándo tendría sentido?</li>
+          <li>¿Por qué el ping test falla si el trunk no está configurado?</li>
+        </ol>
+      </div>
+      <div>
+        <h3>Post-laboratorio / evaluación oral</h3>
+        <ol>
+          <li>La Clínica quiere añadir VLAN 40 para IoT médico. ¿Qué comandos adicionales necesitas?</li>
+          <li>¿Qué pasa si dos PCs en la misma VLAN intentan comunicarse? ¿Pasa por el router?</li>
+          <li>¿Cuáles son los tres campos del encabezado 802.1Q más relevantes para seguridad?</li>
+          <li>Un atacante en VLAN 10 quiere acceder a VLAN 20. ¿Qué técnica podría usar y cómo mitigarla?</li>
+          <li>¿Cuándo preferirías un Switch L3 sobre Router-on-a-Stick? Justifica con números de tráfico.</li>
+        </ol>
+      </div>
+    </div>
+  </section>
+
+  <!-- 8. ACTIVIDADES DE EXTENSIÓN -->
+  <section>
+    <h2>8 · Actividades de extensión</h2>
+    <div class="grid-2">
+      <div class="card card-ok">
+        <h4>🟢 Nivel básico — consolidación</h4>
+        <ul>
+          <li>Dibujar la topología del lab y etiquetar cada enlace indicando si es access o trunk</li>
+          <li>Crear una tabla con las 3 VLANs, sus IPs de red y la IP del gateway</li>
+          <li>Listar todos los comandos CLI del lab en orden, explicando cada uno en una oración</li>
+        </ul>
+      </div>
+      <div class="card card-warn">
+        <h4>🟡 Nivel intermedio — aplicación</h4>
+        <ul>
+          <li>Investigar: ¿qué es VLAN hopping y cómo afecta la encapsulation dot1Q nativa?</li>
+          <li>Calcular el throughput máximo de RoaS con un enlace trunk de 100 Mbps y 3 VLANs activas</li>
+          <li>Comparar la configuración de RoaS con <em>inter-VLAN routing en Switch L3</em> (SVI)</li>
+        </ul>
+      </div>
+      <div class="card card-err">
+        <h4>🔴 Nivel avanzado — análisis</h4>
+        <ul>
+          <li>Diseñar una política de QoS usando los 3 bits PCP del encabezado 802.1Q para priorizar tráfico de UCI</li>
+          <li>Investigar el ataque <em>Double Tagging VLAN Hopping</em> y demostrar por qué afecta a la VLAN nativa</li>
+          <li>Comparar rendimiento RoaS vs Switch L3 en una red hospitalaria con 500 dispositivos</li>
+        </ul>
+      </div>
+      <div class="card card-purple">
+        <h4>🟣 Conexión con siguientes labs</h4>
+        <ul>
+          <li><strong>Lab 3 (Firewall & ACLs):</strong> las VLANs del lab 2 serán las zonas LAN/DMZ de este lab</li>
+          <li><strong>Lab 6 (Switch L2):</strong> veremos cómo el switch gestiona VLANs y trunks desde su propio CLI</li>
+          <li><strong>Proyecto integrador:</strong> unir la topología de lab 1+2+3 en una red completa de la Clínica San Rafael</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <!-- 9. SOLUCIÓN DE PROBLEMAS -->
+  <section>
+    <h2>9 · Solución de problemas comunes</h2>
+    <table class="doc-table">
+      <thead><tr><th>Síntoma</th><th>Causa probable</th><th>Solución para el docente</th></tr></thead>
+      <tbody>
+        <tr>
+          <td>Paso 1 no avanza</td>
+          <td>Faltan dispositivos: menos de 3 hosts o sin router/switch</td>
+          <td>Verificar el canvas — se necesita 1 router + 1 switch + ≥3 hosts</td>
+        </tr>
+        <tr>
+          <td>Paso 2 falla con "falta trunk"</td>
+          <td>Se usó la herramienta Conectar normal en vez de Trunk 802.1Q</td>
+          <td>Clic en herramienta 🔀 Trunk 802.1Q → clic nodo switch → clic nodo router</td>
+        </tr>
+        <tr>
+          <td>CLI no acepta <code>ip address</code></td>
+          <td>No se configuró <code>encapsulation dot1Q</code> primero</td>
+          <td>El orden es obligatorio: encapsulation → ip address → no shutdown</td>
+        </tr>
+        <tr>
+          <td>Paso 4 no avanza pese a configurar 3 subifs</td>
+          <td>Falta el <code>no shutdown</code> en una o más sub-interfaces</td>
+          <td>El modal CLI muestra el estado de cada subif; verificar que aparezca "active"</td>
+        </tr>
+        <tr>
+          <td>Ping Test devuelve error</td>
+          <td>Alguna sub-interfaz está incompleta (falta encap o IP)</td>
+          <td>Revisar con <code>show ip interface brief</code> en el CLI del simulador</td>
+        </tr>
+        <tr>
+          <td>Canvas no responde al arrastre</td>
+          <td>Zoom del navegador &gt; 100% o resolución baja</td>
+          <td>Ctrl+0 para resetear zoom a 100%</td>
+        </tr>
+      </tbody>
+    </table>
+  </section>
+
+  <!-- 10. GLOSARIO -->
+  <section>
+    <h2>10 · Glosario técnico</h2>
+    <div class="grid-2">
+      <div>
+        <dl style="font-size:12px">
+          <dt style="color:var(--accent);font-weight:700;margin-top:10px">Router-on-a-Stick (RoaS)</dt>
+          <dd style="color:var(--text);margin-left:12px;line-height:1.7">Técnica de inter-VLAN routing que usa un único enlace físico trunk entre un switch y un router, con sub-interfaces lógicas por VLAN en el router.</dd>
+          <dt style="color:var(--accent);font-weight:700;margin-top:10px">Sub-interfaz</dt>
+          <dd style="color:var(--text);margin-left:12px;line-height:1.7">Interfaz lógica creada sobre una interfaz física. Permite que un puerto físico gestione múltiples VLANs de forma independiente.</dd>
+          <dt style="color:var(--accent);font-weight:700;margin-top:10px">Encapsulation dot1Q</dt>
+          <dd style="color:var(--text);margin-left:12px;line-height:1.7">Comando Cisco que asocia una sub-interfaz a un VID específico. El router procesará todas las tramas etiquetadas con ese VID en esa sub-interfaz.</dd>
+        </dl>
+      </div>
+      <div>
+        <dl style="font-size:12px">
+          <dt style="color:var(--accent);font-weight:700;margin-top:10px">Trunk Port</dt>
+          <dd style="color:var(--text);margin-left:12px;line-height:1.7">Puerto que transporta tráfico de múltiples VLANs con etiquetas 802.1Q. Conecta switches entre sí o un switch con un router.</dd>
+          <dt style="color:var(--accent);font-weight:700;margin-top:10px">Access Port</dt>
+          <dd style="color:var(--text);margin-left:12px;line-height:1.7">Puerto que pertenece a una única VLAN. El switch añade/quita la etiqueta 802.1Q de forma transparente para el dispositivo final.</dd>
+          <dt style="color:var(--accent);font-weight:700;margin-top:10px">Inter-VLAN Routing</dt>
+          <dd style="color:var(--text);margin-left:12px;line-height:1.7">Proceso de reenviar tráfico IP entre distintas VLANs (distintos dominios de broadcast L2) a través de un router o switch L3.</dd>
+        </dl>
+      </div>
+    </div>
+  </section>
+
+  <!-- FOOTER -->
+  <div style="border-top:1px solid var(--border);margin-top:20px;padding-top:20px;display:flex;align-items:center;justify-content:space-between;font-size:11px;color:var(--muted)">
+    <div>Clínica San Rafael · Simuladores de Redes · Lab 2 / 6</div>
+    <div style="display:flex;gap:16px">
+      <a href="index.html" style="color:var(--accent);text-decoration:none">← Abrir simulador</a>
+      <a href="../lab1/index.html" style="color:var(--muted);text-decoration:none">Lab 1</a>
+      <a href="../lab3/index.html" style="color:var(--muted);text-decoration:none">Lab 3 →</a>
+    </div>
+  </div>
+
+</div>
+</body>
+</html>

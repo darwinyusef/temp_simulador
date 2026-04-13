@@ -1,0 +1,310 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Clínica San Rafael — Lab 2: Router-on-a-Stick</title>
+<style>
+  :root {
+    --bg:#0f1117;--panel:#161b27;--card:#1e2535;--border:#2a3347;
+    --accent:#f59e0b;--accent2:#10b981;--warn:#f59e0b;--danger:#ef4444;
+    --text:#e2e8f0;--muted:#64748b;
+    --vlan10:#3b82f6;--vlan20:#10b981;--vlan30:#f59e0b;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{background:var(--bg);color:var(--text);font-family:'Segoe UI',system-ui,sans-serif;height:100vh;display:flex;flex-direction:column;overflow:hidden}
+
+  header{background:var(--panel);border-bottom:1px solid var(--border);padding:10px 20px;display:flex;align-items:center;gap:16px;flex-shrink:0}
+  .logo{font-size:18px;font-weight:700;color:var(--accent)}
+  .subtitle{font-size:12px;color:var(--muted)}
+  .steps-nav{display:flex;gap:6px;margin-left:auto;align-items:center}
+  .step-btn{padding:5px 14px;border-radius:20px;border:1px solid var(--border);background:transparent;color:var(--muted);font-size:12px;cursor:pointer;transition:all .2s}
+  .step-btn.active{background:var(--accent);color:#fff;border-color:var(--accent)}
+  .step-btn.done{background:var(--accent2);color:#fff;border-color:var(--accent2)}
+  .step-btn:hover:not(.active){border-color:var(--accent);color:var(--accent)}
+
+  .main{display:flex;flex:1;overflow:hidden}
+
+  .panel{width:200px;background:var(--panel);border-right:1px solid var(--border);display:flex;flex-direction:column;flex-shrink:0;overflow-y:auto;padding:12px;gap:8px}
+  .panel-title{font-size:10px;text-transform:uppercase;letter-spacing:1px;color:var(--muted);padding:4px 0;border-bottom:1px solid var(--border);margin-bottom:4px}
+  .device-item{background:var(--card);border:1px solid var(--border);border-radius:8px;padding:8px 10px;cursor:grab;display:flex;align-items:center;gap:8px;font-size:12px;transition:all .15s;user-select:none}
+  .device-item:hover{border-color:var(--accent);background:#253047}
+  .device-item:active{cursor:grabbing}
+  .device-icon{font-size:20px;width:30px;text-align:center;display:flex;align-items:center;justify-content:center}
+  .device-icon img{width:28px;height:28px;object-fit:contain;filter:drop-shadow(0 1px 2px rgba(0,0,0,.4))}
+
+  .vlan-badges{display:flex;flex-direction:column;gap:4px}
+  .vlan-badge{border-radius:6px;padding:5px 8px;font-size:11px;font-weight:600;display:flex;align-items:center;gap:6px;cursor:grab;user-select:none}
+  .vlan-badge:active{cursor:grabbing}
+
+  .canvas-wrap{flex:1;display:flex;flex-direction:column;overflow:hidden}
+  .step-info{background:var(--card);border-bottom:1px solid var(--border);padding:10px 20px;display:flex;align-items:center;gap:12px;flex-shrink:0}
+  .step-title{font-weight:700;font-size:14px;color:var(--accent)}
+  .step-desc{font-size:12px;color:var(--muted);flex:1}
+  .btn{padding:6px 14px;border-radius:6px;border:none;cursor:pointer;font-size:12px;font-weight:600;transition:all .15s}
+  .btn-primary{background:var(--accent);color:#fff}.btn-primary:hover{background:#d97706}
+  .btn-danger{background:var(--danger);color:#fff}
+
+  #canvas{flex:1;position:relative;overflow:hidden;background:var(--bg);background-image:radial-gradient(circle,#2a3347 1px,transparent 1px);background-size:28px 28px}
+  .node{position:absolute;display:flex;flex-direction:column;align-items:center;gap:4px;cursor:grab;user-select:none;z-index:10}
+  .node:active{cursor:grabbing}
+  .node-box{background:var(--card);border:2px solid var(--border);border-radius:10px;padding:10px 12px;display:flex;flex-direction:column;align-items:center;gap:4px;min-width:72px;transition:border-color .2s,box-shadow .2s}
+  .node-box:hover{border-color:var(--accent);box-shadow:0 0 14px rgba(245,158,11,.3)}
+  .node-icon{font-size:28px;display:flex;align-items:center;justify-content:center}
+  .node-icon img{width:44px;height:44px;object-fit:contain;filter:drop-shadow(0 1px 3px rgba(0,0,0,.5))}
+  .node-label{font-size:10px;font-weight:600;text-align:center;color:var(--text);max-width:80px}
+  .node-vlan{font-size:9px;padding:1px 5px;border-radius:10px;font-weight:700;color:#fff;margin-top:2px}
+  .node-delete{position:absolute;top:-8px;right:-8px;background:var(--danger);color:#fff;border:none;border-radius:50%;width:18px;height:18px;font-size:10px;cursor:pointer;display:none;align-items:center;justify-content:center;z-index:20}
+  .node:hover .node-delete{display:flex}
+
+  #svg-layer{position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:5}
+  .link-line{stroke:var(--border);stroke-width:2;fill:none}
+  .link-line.trunk{stroke:var(--accent);stroke-width:3;stroke-dasharray:8,4}
+  .link-delete{cursor:pointer;stroke:transparent;stroke-width:12;fill:none}
+  .connecting-line{stroke:var(--warn);stroke-width:2;stroke-dasharray:6,3;pointer-events:none}
+  #canvas.connecting{cursor:crosshair}
+  #canvas.connecting .node{cursor:crosshair}
+
+  .toolbar{display:flex;gap:6px;padding:8px 20px;background:var(--panel);border-bottom:1px solid var(--border);flex-shrink:0;align-items:center}
+  .tool-btn{padding:5px 10px;border-radius:5px;border:1px solid var(--border);background:var(--card);color:var(--text);font-size:11px;cursor:pointer;display:flex;align-items:center;gap:5px;transition:all .15s}
+  .tool-btn:hover{border-color:var(--accent);color:var(--accent)}
+  .tool-btn.active{background:var(--accent);border-color:var(--accent);color:#fff}
+  .tool-sep{width:1px;height:20px;background:var(--border);margin:0 4px}
+
+  .right-panel{width:220px;background:var(--panel);border-left:1px solid var(--border);display:flex;flex-direction:column;flex-shrink:0;overflow-y:auto}
+  .rp-section{padding:12px;border-bottom:1px solid var(--border)}
+  .rp-title{font-size:10px;text-transform:uppercase;letter-spacing:1px;color:var(--muted);margin-bottom:8px}
+  .check-list{display:flex;flex-direction:column;gap:5px}
+  .check-item{display:flex;align-items:center;gap:8px;font-size:11px;padding:5px 8px;border-radius:6px;background:var(--bg)}
+  .check-item.ok{color:var(--accent2)}.check-item.err{color:var(--muted)}
+  .check-item.ok::before{content:'✓';font-weight:700;color:var(--accent2)}
+  .check-item.err::before{content:'○';color:var(--muted)}
+
+  .progress-bar{height:3px;background:var(--border);flex-shrink:0}
+  .progress-fill{height:100%;background:linear-gradient(90deg,var(--accent),var(--accent2));transition:width .4s}
+  .toast{position:fixed;bottom:20px;right:20px;padding:12px 20px;border-radius:8px;font-size:13px;font-weight:600;z-index:200;transform:translateY(60px);opacity:0;transition:all .3s}
+  .toast.show{transform:translateY(0);opacity:1}
+
+  /* CLI */
+  .cli-btn{display:none;align-items:center;gap:6px;background:rgba(245,158,11,.12);border:1px solid var(--accent);color:var(--accent);padding:5px 12px;border-radius:6px;cursor:pointer;font-size:11px;font-weight:700;transition:all .2s;margin-left:8px}
+  .cli-btn.visible{display:flex}
+  @keyframes cliBtnPulse{0%,100%{box-shadow:0 0 0 0 rgba(245,158,11,0)}60%{box-shadow:0 0 0 7px rgba(245,158,11,.35)}}
+  .cli-btn.pulse{animation:cliBtnPulse 1.6s ease-in-out infinite}
+  .cli-overlay{position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:300;opacity:0;pointer-events:none;transition:opacity .2s;display:flex;align-items:center;justify-content:center}
+  .cli-overlay.open{opacity:1;pointer-events:all}
+  .cli-modal{background:#0d1117;border:1px solid #2a3347;border-radius:12px;width:700px;max-width:94vw;max-height:85vh;box-shadow:0 32px 80px rgba(0,0,0,.8);transform:scale(.96) translateY(12px);transition:transform .28s cubic-bezier(.34,1.56,.64,1);overflow:hidden;display:flex;flex-direction:column}
+  .cli-overlay.open .cli-modal{transform:scale(1) translateY(0)}
+  .cli-titlebar{background:#161b27;border-bottom:1px solid #1e2535;padding:9px 14px;display:flex;align-items:center;gap:10px}
+  .cli-titlebar-dots{display:flex;gap:5px}
+  .cli-titlebar-dot{width:10px;height:10px;border-radius:50%;cursor:pointer}
+  .cli-titlebar-close{margin-left:auto;background:none;border:none;color:#64748b;cursor:pointer;font-size:14px;line-height:1;padding:0 2px}
+  .cli-titlebar-close:hover{color:#e2e8f0}
+  .cli-out{font-family:'Courier New',monospace;font-size:12px;color:#e2e8f0;padding:10px 12px;height:320px;flex:1;overflow-y:auto;line-height:1.6}
+  .cli-input-row{display:flex;align-items:center;padding:7px 12px;border-top:1px solid #1a1a1a;gap:8px}
+  .cli-prompt-lbl{font-family:monospace;font-size:12px;color:var(--accent);white-space:nowrap}
+  .cli-field{flex:1;background:transparent;border:none;color:#fff;font-family:'Courier New',monospace;font-size:12px;outline:none}
+
+  .modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.7);display:none;align-items:center;justify-content:center;z-index:100}
+  .modal-overlay.show{display:flex}
+  .modal{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:20px;width:460px;max-height:80vh;overflow-y:auto}
+  .modal h3{font-size:14px;margin-bottom:12px;color:var(--accent)}
+  .ping-result{font-family:monospace;font-size:11px;background:var(--bg);border-radius:6px;padding:10px;margin-top:8px;max-height:220px;overflow-y:auto}
+  .ping-ok{color:var(--accent2)}.ping-err{color:var(--danger)}.ping-info{color:var(--warn)}
+
+  .comp-overlay{position:fixed;inset:0;background:rgba(0,0,0,.86);display:flex;align-items:center;justify-content:center;z-index:500;opacity:0;pointer-events:none;transition:opacity .4s}
+  .comp-overlay.show{opacity:1;pointer-events:all}
+  .comp-card{background:var(--card);border:1px solid var(--accent);border-radius:20px;padding:28px 34px;text-align:center;max-width:500px;width:92%;transform:scale(.82);transition:transform .5s cubic-bezier(.34,1.56,.64,1);position:relative;overflow:hidden;box-shadow:0 0 60px rgba(245,158,11,.15)}
+  .comp-overlay.show .comp-card{transform:scale(1)}
+  @keyframes trophyPop{from{transform:scale(0) rotate(-20deg)}to{transform:scale(1) rotate(0)}}
+  .comp-trophy{font-size:54px;display:block;margin-bottom:6px;animation:trophyPop .6s cubic-bezier(.34,1.56,.64,1) .25s both}
+  .comp-title{font-size:21px;font-weight:800;color:var(--accent);margin-bottom:3px}
+  .comp-sub{font-size:11px;color:var(--muted);margin-bottom:18px}
+  .comp-stats{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:14px}
+  .comp-stat{background:var(--bg);border-radius:10px;padding:9px 4px}
+  .comp-stat-n{font-size:24px;font-weight:800;color:var(--accent);line-height:1}
+  .comp-stat-l{font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:.7px;margin-top:2px}
+  .confetti-p{position:absolute;border-radius:2px;pointer-events:none}
+  @keyframes confettiFall{0%{transform:translateY(0) rotate(0);opacity:1}100%{transform:translateY(380px) rotate(720deg);opacity:0}}
+</style>
+</head>
+<body>
+
+<header>
+  <div>
+    <div class="logo">📡 Clínica San Rafael</div>
+    <div class="subtitle">Lab 2 · Router-on-a-Stick — Routing Inter-VLAN 802.1Q</div>
+  </div>
+  <div class="steps-nav" id="stepsNav">
+    <button class="step-btn active" onclick="goStep(1)" id="sBtn1">Paso 1</button>
+    <button class="step-btn" onclick="goStep(2)" id="sBtn2">Paso 2</button>
+    <button class="step-btn" onclick="goStep(3)" id="sBtn3">Paso 3</button>
+    <button class="step-btn" onclick="goStep(4)" id="sBtn4">Paso 4</button>
+    <button class="step-btn" onclick="goStep(5)" id="sBtn5">Paso 5</button>
+    <button class="cli-btn" id="cliBtn" onclick="toggleCLI()" title="Router CLI">⌨ Router CLI</button>
+    <div style="margin-left:8px;display:flex;gap:6px">
+      <a href="../lab1/index.html" style="font-size:11px;color:var(--muted);text-decoration:none;padding:5px 10px;border:1px solid var(--border);border-radius:6px">← Lab 1</a>
+      <a href="../lab3/index.html" style="font-size:11px;color:var(--muted);text-decoration:none;padding:5px 10px;border:1px solid var(--border);border-radius:6px">Lab 3 →</a>
+    </div>
+  </div>
+</header>
+<div class="progress-bar"><div class="progress-fill" id="progressFill" style="width:20%"></div></div>
+
+<div class="main">
+
+  <!-- LEFT PANEL -->
+  <div class="panel" id="leftPanel">
+    <div class="panel-title">Dispositivos</div>
+    <div class="device-item" draggable="true" data-type="router" data-label="Router" data-icon="📡">
+      <span class="device-icon"><img src="../icons/router.png" alt="router" onerror="this.outerHTML='<span>📡</span>'"></span><span>Router</span>
+    </div>
+    <div class="device-item" draggable="true" data-type="switch" data-label="Switch L2" data-icon="🔀">
+      <span class="device-icon"><img src="../icons/switch.png" alt="switch" onerror="this.outerHTML='<span>🔀</span>'"></span><span>Switch L2</span>
+    </div>
+    <div class="device-item" draggable="true" data-type="pc" data-label="PC" data-icon="💻">
+      <span class="device-icon"><img src="../icons/pc.png" alt="pc" onerror="this.outerHTML='<span>💻</span>'"></span><span>PC</span>
+    </div>
+    <div class="device-item" draggable="true" data-type="server" data-label="Servidor" data-icon="🖥️">
+      <span class="device-icon"><img src="../icons/server.png" alt="server" onerror="this.outerHTML='<span>🖥️</span>'"></span><span>Servidor</span>
+    </div>
+    <div class="device-item" draggable="true" data-type="laptop" data-label="Laptop" data-icon="🖱️">
+      <span class="device-icon"><img src="../icons/workstation.png" alt="laptop" onerror="this.outerHTML='<span>🖱️</span>'"></span><span>Laptop</span>
+    </div>
+
+    <div class="panel-title" style="margin-top:8px">VLANs</div>
+    <div class="vlan-badges">
+      <div class="vlan-badge" draggable="true" data-vlan="10" data-vname="Administración"
+        style="background:rgba(59,130,246,.2);border:1px solid var(--vlan10);color:var(--vlan10)">
+        <span>🏢</span> VLAN 10 — Admin
+      </div>
+      <div class="vlan-badge" draggable="true" data-vlan="20" data-vname="Médicos"
+        style="background:rgba(16,185,129,.2);border:1px solid var(--vlan20);color:var(--vlan20)">
+        <span>👨‍⚕️</span> VLAN 20 — Médicos
+      </div>
+      <div class="vlan-badge" draggable="true" data-vlan="30" data-vname="Enfermería"
+        style="background:rgba(245,158,11,.2);border:1px solid var(--vlan30);color:var(--vlan30)">
+        <span>💊</span> VLAN 30 — Enfermería
+      </div>
+    </div>
+  </div>
+
+  <!-- CANVAS -->
+  <div class="canvas-wrap">
+    <div class="step-info">
+      <span class="step-title" id="stepTitle">Paso 1</span>
+      <span class="step-desc" id="stepDesc">Arrastra 1 Router + 1 Switch + al menos 3 PCs al canvas</span>
+      <div style="display:flex;gap:6px">
+        <button class="btn btn-danger" onclick="clearCanvas()" style="font-size:11px">🗑 Limpiar</button>
+        <button class="btn btn-primary" id="validateBtn" onclick="validateStep()">Validar ✓</button>
+      </div>
+    </div>
+    <div class="toolbar">
+      <button class="tool-btn active" id="toolSelect" onclick="setTool('select')">☝️ Seleccionar</button>
+      <button class="tool-btn" id="toolConnect" onclick="setTool('connect')">🔗 Conectar</button>
+      <button class="tool-btn" id="toolTrunk" onclick="setTool('trunk')">🔀 Trunk 802.1Q</button>
+      <div class="tool-sep"></div>
+      <button class="tool-btn" onclick="openPingModal()">📡 Ping Test</button>
+      <div style="margin-left:auto;font-size:11px;color:var(--muted)" id="toolHint">Selecciona una herramienta</div>
+    </div>
+    <div id="canvas"
+      ondragover="onDragOver(event)"
+      ondrop="onDrop(event)"
+      onmousemove="onMouseMove(event)"
+      onclick="onCanvasClick(event)">
+      <svg id="svg-layer"></svg>
+    </div>
+  </div>
+
+  <!-- RIGHT PANEL -->
+  <div class="right-panel">
+    <div class="rp-section">
+      <div class="rp-title">Estado</div>
+      <div id="netStatus"><div style="font-size:11px;color:var(--muted)">Sin dispositivos</div></div>
+    </div>
+    <div class="rp-section">
+      <div class="rp-title">Checklist</div>
+      <div class="check-list" id="checkList"></div>
+    </div>
+    <div class="rp-section">
+      <div class="rp-title">Quick Ref IOS</div>
+      <div style="font-size:10px;line-height:2.1;font-family:monospace;color:var(--muted)">
+        <div style="color:var(--accent)">enable</div>
+        <div style="color:var(--accent)">configure terminal</div>
+        <div style="color:var(--accent)">interface fa0/0.10</div>
+        <div style="color:var(--accent)">encapsulation dot1Q 10</div>
+        <div style="color:var(--accent)">ip address 10.10.10.1 255.255.255.0</div>
+        <div style="color:var(--accent)">no shutdown</div>
+        <div style="color:var(--accent)">show ip route</div>
+        <div style="color:var(--accent)">show interfaces trunk</div>
+      </div>
+    </div>
+    <div class="rp-section">
+      <div class="rp-title">VLANs del Lab</div>
+      <div style="display:flex;flex-direction:column;gap:5px">
+        <div style="font-size:10px;display:flex;align-items:center;gap:6px"><span style="width:10px;height:10px;border-radius:2px;background:var(--vlan10);display:inline-block"></span>VLAN 10 — Administración · 10.10.10.0/24</div>
+        <div style="font-size:10px;display:flex;align-items:center;gap:6px"><span style="width:10px;height:10px;border-radius:2px;background:var(--vlan20);display:inline-block"></span>VLAN 20 — Médicos · 10.10.20.0/24</div>
+        <div style="font-size:10px;display:flex;align-items:center;gap:6px"><span style="width:10px;height:10px;border-radius:2px;background:var(--vlan30);display:inline-block"></span>VLAN 30 — Enfermería · 10.10.30.0/24</div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- CLI MODAL -->
+<div class="cli-overlay" id="cliOverlay" onclick="if(event.target===this)closeCLI()">
+  <div class="cli-modal">
+    <div class="cli-titlebar">
+      <div class="cli-titlebar-dots">
+        <div class="cli-titlebar-dot" style="background:#ef4444" onclick="closeCLI()"></div>
+        <div class="cli-titlebar-dot" style="background:#f59e0b"></div>
+        <div class="cli-titlebar-dot" style="background:#10b981"></div>
+      </div>
+      <span style="flex:1;font-size:11px;color:#64748b;font-family:monospace">Router@clinica-san-rafael — Lab 2</span>
+      <button class="cli-titlebar-close" onclick="closeCLI()">✕</button>
+    </div>
+    <div class="cli-out" id="cliOutput"></div>
+    <div class="cli-input-row">
+      <span class="cli-prompt-lbl" id="cliPromptLbl">Router></span>
+      <input class="cli-field" id="cliInput" type="text" autocomplete="off" spellcheck="false"
+        placeholder="comando IOS..." onkeydown="onCLI(event)">
+    </div>
+  </div>
+</div>
+
+<!-- PING MODAL -->
+<div class="modal-overlay" id="pingModal" onclick="if(event.target===this)closePing()">
+  <div class="modal">
+    <h3>📡 Test de Routing Inter-VLAN</h3>
+    <p style="font-size:12px;color:var(--muted);margin-bottom:12px">Verifica que el Router enruta tráfico entre VLANs distintas.</p>
+    <div id="pingBody"></div>
+    <div class="ping-result" id="pingOutput"></div>
+    <div style="display:flex;gap:8px;margin-top:12px">
+      <button class="btn btn-primary" onclick="runPingTest()">Ejecutar Test</button>
+      <button class="btn" style="background:var(--card);border:1px solid var(--border)" onclick="closePing()">Cerrar</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<!-- COMPLETION -->
+<div class="comp-overlay" id="compOverlay">
+  <div class="comp-card" id="compCard">
+    <span class="comp-trophy">📡</span>
+    <div class="comp-title">¡Router-on-a-Stick Listo!</div>
+    <div class="comp-sub">Clínica San Rafael — Routing Inter-VLAN operativo</div>
+    <div class="comp-stats">
+      <div class="comp-stat"><div class="comp-stat-n" id="cst-dev">0</div><div class="comp-stat-l">Dispositivos</div></div>
+      <div class="comp-stat"><div class="comp-stat-n" id="cst-sub">0</div><div class="comp-stat-l">Sub-ifs</div></div>
+      <div class="comp-stat"><div class="comp-stat-n">3</div><div class="comp-stat-l">VLANs</div></div>
+      <div class="comp-stat"><div class="comp-stat-n">✓</div><div class="comp-stat-l">Routing</div></div>
+    </div>
+    <div style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap">
+      <a href="../lab3/index.html" style="background:var(--accent);color:#fff;padding:9px 22px;border-radius:8px;text-decoration:none;font-size:13px;font-weight:700">Lab 3: Firewall →</a>
+      <button onclick="document.getElementById('compOverlay').classList.remove('show')" style="background:var(--card);border:1px solid var(--border);color:var(--muted);padding:9px 14px;border-radius:8px;cursor:pointer;font-size:12px">Revisar</button>
+    </div>
+  </div>
+</div>
+
+<script src="./sim.js"></script>
+</body>
+</html>
